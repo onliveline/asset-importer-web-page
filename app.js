@@ -13,7 +13,10 @@ let selectedId = null;
 let viewer = null;
 let currentBytes = null;
 let loadToken = 0;
-const cache = new Map(); // asset id -> ArrayBuffer, for this page session only
+const cache = new Map(); // asset id -> ArrayBuffer of models viewed or downloaded this session
+const jobs = new Map();  // asset id -> { promise, listeners }: one download per asset, shared by viewer, prefetch and bulk download
+const DISK_CACHE = 'onvr-asset-library-v1';
+const PREFETCH_BUDGET = 500e6; // prefetch the whole library when it is this small
 const checked = new Set(); // asset ids ticked for bulk download
 
 // ── Sign-in ──────────────────────────────────────────────────────────
@@ -39,6 +42,7 @@ async function start(src) {
   if (isLocalPreview) window.viewer = viewer; // console access for local debugging
   viewer.onTick = updateTimeline;
   renderList();
+  prefetch();
   const fromHash = decodeURIComponent(location.hash.slice(1)).split('@')[0];
   if (assets.some(a => a.id === fromHash)) select(fromHash);
 }
@@ -66,6 +70,7 @@ $('gate-form').addEventListener('submit', async e => {
 $('signout').addEventListener('click', () => {
   tokenStore.clear();
   source = null; assets = []; cache.clear(); checked.clear(); currentBytes = null; selectedId = null;
+  clearDiskCache();
   viewer?.clear();
   location.hash = '';
   showGate();
@@ -135,10 +140,62 @@ $('select-all').addEventListener('click', () => {
   renderList();
 });
 
+// ── Model bytes: memory → on-device cache → GitHub ──────────────────
+// The on-device cache (Cache Storage, keyed by SHA-256) makes repeat views instant and saves
+// LFS bandwidth. It holds private models, so Sign out deletes it.
+
+const diskKey = asset => `${location.origin}/__onvr-asset-cache/${asset.sha256}`;
+
+async function diskGet(asset) {
+  try { const hit = await (await caches.open(DISK_CACHE)).match(diskKey(asset)); return hit ? hit.arrayBuffer() : null; }
+  catch { return null; }
+}
+
+async function diskPut(asset, bytes) {
+  try { await (await caches.open(DISK_CACHE)).put(diskKey(asset), new Response(bytes)); } catch { /* storage unavailable or full */ }
+}
+
+async function diskHas(asset) {
+  try { return !!(await (await caches.open(DISK_CACHE)).match(diskKey(asset))); } catch { return false; }
+}
+
+function clearDiskCache() {
+  try { caches.delete(DISK_CACHE); } catch { /* ignore */ }
+}
+
+function fetchShared(asset, onProgress) {
+  let job = jobs.get(asset.id);
+  if (!job) {
+    job = { listeners: new Set() };
+    job.promise = (async () => {
+      const bytes = (await diskGet(asset)) || await source.modelBytes(asset, f => job.listeners.forEach(l => l(f)));
+      await diskPut(asset, bytes);
+      return bytes;
+    })().finally(() => jobs.delete(asset.id));
+    jobs.set(asset.id, job);
+  }
+  if (onProgress) job.listeners.add(onProgress);
+  return job.promise;
+}
+
 async function getBytes(asset, onProgress) {
   let bytes = cache.get(asset.id);
-  if (!bytes) { bytes = await source.modelBytes(asset, onProgress); cache.set(asset.id, bytes); }
+  if (!bytes) { bytes = await fetchShared(asset, onProgress); cache.set(asset.id, bytes); }
   return bytes;
+}
+
+// Background-fill the on-device cache, three at a time, so opening any model skips the network.
+async function prefetch() {
+  if (typeof caches === 'undefined') return;
+  const missing = [];
+  for (const a of assets) if (!(await diskHas(a))) missing.push(a);
+  if (!missing.length || missing.reduce((n, a) => n + (a.bytes || 0), 0) > PREFETCH_BUDGET) return;
+  const worker = async () => {
+    for (let a; (a = missing.shift()) && source;) {
+      try { await fetchShared(a); } catch { /* the viewer reports errors when that model is opened */ }
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
 }
 
 function saveFile(name, data) {
