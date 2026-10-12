@@ -107,6 +107,11 @@ button.ghost:hover, .tool:hover, .chip:hover { border-color: var(--muted); }
 .chip { padding: 4px 10px; background: var(--panel-2); border-color: var(--line); font-size: 12px; }
 .chip[aria-pressed=true] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 .list { list-style: none; margin: 0; padding: 0; overflow: auto; display: grid; gap: 6px; align-content: start; }
+.row { display: flex; align-items: stretch; gap: 8px; }
+.row input[type=checkbox] { margin: 0; width: 16px; accent-color: var(--accent); cursor: pointer; flex: none; }
+.bulk { display: flex; align-items: center; gap: 6px; border-top: 1px solid var(--line); padding-top: 10px; margin-top: auto; }
+.bulk .primary { flex: 1; }
+.bulk button { white-space: nowrap; font-size: 13px; }
 .item {
   width: 100%; text-align: left; padding: 10px 12px; border-radius: 10px; cursor: pointer;
   background: transparent; border: 1px solid var(--line); display: grid; gap: 6px;

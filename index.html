@@ -55,6 +55,11 @@
     </div>
     <ul id="list" class="list" aria-label="Assets"></ul>
     <p id="list-empty" class="muted small" hidden>No assets match.</p>
+    <div class="bulk">
+      <button id="select-all" class="ghost small-btn">Select all</button>
+      <button id="bulk-download" class="primary small-btn" disabled>Download selected</button>
+    </div>
+    <p id="bulk-status" class="muted small" hidden></p>
   </aside>
 
   <main class="stage">
@@ -96,8 +101,6 @@
       <dt>Tags</dt><dd id="d-tags"></dd>
     </dl>
     <button id="download" class="primary">Download original</button>
-    <button id="copy-ref" class="ghost" title="Share it, or paste it into Unity: onVR Warehouse › Asset Library">Copy link (for Unity)</button>
-    <p id="copy-note" class="muted small" hidden>Copied.</p>
   </aside>
 </div>
 

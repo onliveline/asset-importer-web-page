@@ -1,6 +1,7 @@
 import { OWNER, REPO } from './config.js';
 import { tokenStore, GitHubSource, LocalSource, AuthError } from './source.js';
 import { Viewer } from './viewer.js';
+import { zipSync } from 'three/addons/libs/fflate.module.js';
 
 const $ = id => document.getElementById(id);
 const isLocalPreview = ['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('local');
@@ -13,6 +14,7 @@ let viewer = null;
 let currentBytes = null;
 let loadToken = 0;
 const cache = new Map(); // asset id -> ArrayBuffer, for this page session only
+const checked = new Set(); // asset ids ticked for bulk download
 
 // ── Sign-in ──────────────────────────────────────────────────────────
 
@@ -63,7 +65,7 @@ $('gate-form').addEventListener('submit', async e => {
 
 $('signout').addEventListener('click', () => {
   tokenStore.clear();
-  source = null; assets = []; cache.clear(); currentBytes = null; selectedId = null;
+  source = null; assets = []; cache.clear(); checked.clear(); currentBytes = null; selectedId = null;
   viewer?.clear();
   location.hash = '';
   showGate();
@@ -92,6 +94,10 @@ function renderList() {
   const shown = assets.filter(matches);
   for (const a of shown) {
     const li = document.createElement('li');
+    li.className = 'row';
+    const box = Object.assign(document.createElement('input'), { type: 'checkbox', checked: checked.has(a.id), title: 'Select for download' });
+    box.setAttribute('aria-label', `Select ${a.name}`);
+    box.addEventListener('change', () => { box.checked ? checked.add(a.id) : checked.delete(a.id); updateBulk(); });
     const btn = document.createElement('button');
     btn.className = 'item';
     btn.setAttribute('aria-current', String(a.id === selectedId));
@@ -105,11 +111,71 @@ function renderList() {
     if (a.animated) row.append(badge('Animated', 'anim'));
     row.append(Object.assign(document.createElement('span'), { className: 'muted small', textContent: formatBytes(a.bytes) }));
     btn.append(name, row);
-    li.append(btn);
+    li.append(box, btn);
     list.append(li);
   }
   $('list-empty').hidden = shown.length > 0;
+  updateBulk();
 }
+
+// ── Bulk download ────────────────────────────────────────────────────
+
+function updateBulk() {
+  const n = checked.size;
+  $('bulk-download').disabled = n === 0;
+  $('bulk-download').textContent = n ? `Download selected (${n})` : 'Download selected';
+  const visible = assets.filter(matches);
+  $('select-all').textContent = visible.length && visible.every(a => checked.has(a.id)) ? 'Clear' : 'Select all';
+}
+
+$('select-all').addEventListener('click', () => {
+  const visible = assets.filter(matches);
+  const all = visible.every(a => checked.has(a.id));
+  for (const a of visible) all ? checked.delete(a.id) : checked.add(a.id);
+  renderList();
+});
+
+async function getBytes(asset, onProgress) {
+  let bytes = cache.get(asset.id);
+  if (!bytes) { bytes = await source.modelBytes(asset, onProgress); cache.set(asset.id, bytes); }
+  return bytes;
+}
+
+function saveFile(name, data) {
+  const url = URL.createObjectURL(new Blob([data], { type: 'application/octet-stream' }));
+  const link = Object.assign(document.createElement('a'), { href: url, download: name });
+  document.body.append(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+// One file downloads as itself; several are packed into one zip (assets/<id>/<file>), uncompressed for speed.
+$('bulk-download').addEventListener('click', async () => {
+  const picked = assets.filter(a => checked.has(a.id));
+  if (!picked.length) return;
+  const status = $('bulk-status');
+  $('bulk-download').disabled = true;
+  status.hidden = false;
+  try {
+    const files = {};
+    for (const [i, a] of picked.entries()) {
+      const bytes = await getBytes(a, p => { status.textContent = `Downloading ${i + 1}/${picked.length}: ${a.name} ${Math.round(p * 100)}%`; });
+      files[`${a.id}/${a.path.split('/').pop()}`] = new Uint8Array(bytes);
+    }
+    if (picked.length === 1) {
+      saveFile(picked[0].path.split('/').pop(), cache.get(picked[0].id));
+    } else {
+      status.textContent = 'Packing zip…';
+      await new Promise(r => setTimeout(r, 0));
+      saveFile(`onvr-assets-${picked.length}.zip`, zipSync(files, { level: 0 }));
+    }
+    status.textContent = `Downloaded ${picked.length} asset${picked.length > 1 ? 's' : ''}.`;
+  } catch (err) {
+    if (err instanceof AuthError) { tokenStore.clear(); showGate(err.message); return; }
+    status.textContent = `Download failed: ${err.message}`;
+  } finally {
+    updateBulk();
+  }
+});
 
 $('search').addEventListener('input', renderList);
 for (const chip of document.querySelectorAll('.chip')) {
@@ -135,11 +201,7 @@ async function select(id) {
   $('anim').hidden = true;
   setLoading(0, `Downloading ${asset.name}…`);
   try {
-    let bytes = cache.get(id);
-    if (!bytes) {
-      bytes = await source.modelBytes(asset, p => ticket === loadToken && setLoading(p, `Downloading ${asset.name}… ${Math.round(p * 100)}%`));
-      cache.set(id, bytes);
-    }
+    const bytes = await getBytes(asset, p => ticket === loadToken && setLoading(p, `Downloading ${asset.name}… ${Math.round(p * 100)}%`));
     if (ticket !== loadToken) return;
     setLoading(1, 'Preparing model…');
     // Loaders may detach or modify the buffer; give them a copy and keep the original for download.
@@ -179,7 +241,6 @@ function showDetails(a) {
   $('d-sha').textContent = a.sha256 ? `${a.sha256.slice(0, 16)}…` : '—';
   $('d-sha').title = a.sha256 || '';
   $('d-tags').textContent = (a.tags || []).join(', ') || '—';
-  $('copy-note').hidden = true;
 }
 
 // ── Animation bar ────────────────────────────────────────────────────
@@ -233,22 +294,7 @@ $('auto-rotate').addEventListener('click', e => {
 
 $('download').addEventListener('click', () => {
   const a = assets.find(x => x.id === selectedId);
-  if (!a || !currentBytes) return;
-  const url = URL.createObjectURL(new Blob([currentBytes], { type: 'application/octet-stream' }));
-  const link = Object.assign(document.createElement('a'), { href: url, download: a.path.split('/').pop() });
-  document.body.append(link); link.click(); link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
-});
-
-// Shareable link: opens this asset in the web library, and pastes into Unity's
-// onVR Warehouse > Asset Library to import it. Names asset + version, never a download URL.
-$('copy-ref').addEventListener('click', async () => {
-  const a = assets.find(x => x.id === selectedId);
-  if (!a) return;
-  const ref = `${location.origin}${location.pathname}#${a.id}@${a.version}`;
-  try { await navigator.clipboard.writeText(ref); $('copy-note').textContent = `Copied ${ref}`; }
-  catch { $('copy-note').textContent = ref; }
-  $('copy-note').hidden = false;
+  if (a && currentBytes) saveFile(a.path.split('/').pop(), currentBytes);
 });
 
 function formatBytes(n) {
