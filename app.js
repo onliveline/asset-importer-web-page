@@ -37,7 +37,7 @@ async function start(src) {
   if (isLocalPreview) window.viewer = viewer; // console access for local debugging
   viewer.onTick = updateTimeline;
   renderList();
-  const fromHash = decodeURIComponent(location.hash.slice(1));
+  const fromHash = decodeURIComponent(location.hash.slice(1)).split('@')[0];
   if (assets.some(a => a.id === fromHash)) select(fromHash);
 }
 
@@ -126,7 +126,7 @@ async function select(id) {
   const asset = assets.find(a => a.id === id);
   if (!asset) return;
   selectedId = id;
-  history.replaceState(null, '', `#${encodeURIComponent(id)}`);
+  history.replaceState(null, '', `#${encodeURIComponent(id)}@${asset.version}`);
   renderList();
   showDetails(asset);
 
@@ -240,11 +240,12 @@ $('download').addEventListener('click', () => {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 });
 
-// Stable reference for a future Unity importer: identifies asset and version, never a download URL.
+// Shareable link: opens this asset in the web library, and pastes into Unity's
+// onVR Warehouse > Asset Library to import it. Names asset + version, never a download URL.
 $('copy-ref').addEventListener('click', async () => {
   const a = assets.find(x => x.id === selectedId);
   if (!a) return;
-  const ref = `onvr-asset://${OWNER}/${REPO}/${a.id}@${a.version}`;
+  const ref = `${location.origin}${location.pathname}#${a.id}@${a.version}`;
   try { await navigator.clipboard.writeText(ref); $('copy-note').textContent = `Copied ${ref}`; }
   catch { $('copy-note').textContent = ref; }
   $('copy-note').hidden = false;
