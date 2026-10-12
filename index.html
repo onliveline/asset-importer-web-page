@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-kaEog0AsPo4/9apXRMvp5eF3zpfBg9ltlJNNm2KUPio='; style-src 'self'; img-src 'self' blob: data: https://avatars.githubusercontent.com; connect-src https://api.github.com https://media.githubusercontent.com blob: data: 'self'; base-uri 'none'; form-action 'none'">
+<title>onVR Asset Library</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css">
+<script type="importmap">{"imports":{"three":"./vendor/three/three.module.min.js","three/addons/":"./vendor/three/addons/"}}</script>
+<script type="module" src="app.js"></script>
+</head>
+<body>
+
+<section id="gate" class="gate" hidden>
+  <form id="gate-form" class="gate-card" autocomplete="off">
+    <div class="brand"><span class="brand-mark"></span>onVR Asset Library</div>
+    <h1>Sign in with a GitHub token</h1>
+    <p class="muted">Assets live in a private repository. Your token is checked against GitHub. If you can read the repository, you can browse the library.</p>
+    <label for="token">Fine-grained personal access token</label>
+    <input id="token" type="password" spellcheck="false" placeholder="github_pat_…" required>
+    <label class="check"><input id="remember" type="checkbox"> Remember on this device</label>
+    <p id="gate-error" class="error" role="alert" hidden></p>
+    <button id="gate-submit" type="submit" class="primary">Open library</button>
+    <details class="howto">
+      <summary>How to create the token</summary>
+      <ol>
+        <li>Open <a id="pat-link" target="_blank" rel="noopener noreferrer">GitHub → Fine-grained tokens → Generate new token</a>.</li>
+        <li>Resource owner: <b id="pat-owner"></b>. Expiration: 90 days or less.</li>
+        <li>Repository access: <b>Only select repositories</b> → <b id="pat-repo"></b>.</li>
+        <li>Permissions → Repository → <b>Contents: Read-only</b>. Nothing else.</li>
+        <li>Generate, copy, paste above. If the organization requires approval, wait for an admin to approve it.</li>
+      </ol>
+    </details>
+  </form>
+</section>
+
+<div id="app" class="app" hidden>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark"></span>onVR Asset Library</div>
+    <div class="topbar-right">
+      <span id="who" class="who"></span>
+      <button id="signout" class="ghost">Sign out</button>
+    </div>
+  </header>
+
+  <aside class="sidebar">
+    <input id="search" type="search" placeholder="Search name or tag" aria-label="Search assets">
+    <div class="chips" role="group" aria-label="Filter">
+      <button class="chip" data-filter="all" aria-pressed="true">All</button>
+      <button class="chip" data-filter="glb" aria-pressed="false">GLB</button>
+      <button class="chip" data-filter="fbx" aria-pressed="false">FBX</button>
+      <button class="chip" data-filter="animated" aria-pressed="false">Animated</button>
+    </div>
+    <ul id="list" class="list" aria-label="Assets"></ul>
+    <p id="list-empty" class="muted small" hidden>No assets match.</p>
+  </aside>
+
+  <main class="stage">
+    <div id="viewport" class="viewport">
+      <div id="placeholder" class="placeholder muted">Select an asset to view it.</div>
+      <div id="loading" class="loading" hidden>
+        <div class="bar"><div id="loading-fill" class="bar-fill"></div></div>
+        <span id="loading-text" class="small"></span>
+      </div>
+      <div class="view-tools">
+        <button id="reset-view" class="tool" title="Reset view">Reset view</button>
+        <button id="auto-rotate" class="tool" aria-pressed="false" title="Auto-rotate">Auto-rotate</button>
+      </div>
+    </div>
+    <div id="anim" class="anim-bar" hidden>
+      <button id="anim-play" class="primary small-btn">Pause</button>
+      <select id="anim-clip" aria-label="Animation clip"></select>
+      <input id="anim-scrub" type="range" min="0" max="1000" value="0" aria-label="Animation time">
+      <span id="anim-time" class="small mono">0.00s</span>
+      <select id="anim-speed" aria-label="Playback speed">
+        <option value="0.25">0.25×</option><option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option><option value="2">2×</option>
+      </select>
+    </div>
+  </main>
+
+  <aside id="details" class="details" hidden>
+    <h2 id="d-name"></h2>
+    <div id="d-badges" class="badges"></div>
+    <dl class="meta">
+      <dt>Size</dt><dd id="d-size"></dd>
+      <dt>Meshes</dt><dd id="d-meshes"></dd>
+      <dt>Triangles</dt><dd id="d-tris"></dd>
+      <dt>Clips</dt><dd id="d-clips"></dd>
+      <dt>Source repo</dt><dd id="d-repo" class="mono wrap"></dd>
+      <dt>Source path</dt><dd id="d-path" class="mono wrap"></dd>
+      <dt>Commit</dt><dd id="d-commit" class="mono"></dd>
+      <dt>SHA-256</dt><dd id="d-sha" class="mono"></dd>
+      <dt>Tags</dt><dd id="d-tags"></dd>
+    </dl>
+    <button id="download" class="primary">Download original</button>
+    <button id="copy-ref" class="ghost">Copy asset reference</button>
+    <p id="copy-note" class="muted small" hidden>Copied.</p>
+  </aside>
+</div>
+
+<div id="fatal" class="fatal" hidden></div>
+</body>
+</html>
