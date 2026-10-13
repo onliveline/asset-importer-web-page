@@ -1,5 +1,6 @@
 import { OWNER, REPO } from './config.js';
 import { tokenStore, GitHubSource, LocalSource, AuthError } from './source.js';
+import { githubSignInAvailable, signInWithGitHub, completeGitHubSignIn, signOut } from './auth.js';
 import { Viewer } from './viewer.js';
 import { zipSync } from 'three/addons/libs/fflate.module.js';
 
@@ -51,6 +52,13 @@ $('pat-link').href = 'https://github.com/settings/personal-access-tokens/new';
 $('pat-owner').textContent = OWNER;
 $('pat-repo').textContent = `${OWNER}/${REPO}`;
 
+$('github-signin').hidden = !githubSignInAvailable;
+$('github-signin').addEventListener('click', async () => {
+  $('github-signin').disabled = true;
+  const { error } = await signInWithGitHub();
+  if (error) { $('github-signin').disabled = false; showGate(`Could not start GitHub sign-in: ${error.message}`); }
+});
+
 $('gate-form').addEventListener('submit', async e => {
   e.preventDefault();
   const token = $('token').value.trim();
@@ -69,6 +77,7 @@ $('gate-form').addEventListener('submit', async e => {
 
 $('signout').addEventListener('click', () => {
   tokenStore.clear();
+  signOut();
   source = null; assets = []; cache.clear(); checked.clear(); currentBytes = null; selectedId = null;
   clearDiskCache();
   viewer?.clear();
@@ -363,7 +372,10 @@ function formatBytes(n) {
 
 (async () => {
   try {
-    if (isLocalPreview) return await start(new LocalSource());
+    if (isLocalPreview && !new URLSearchParams(location.search).has('auth')) return await start(new LocalSource());
+    // Returning from "Sign in with GitHub": keep the member's GitHub token for this device (it expires after 8 hours).
+    const githubToken = await completeGitHubSignIn();
+    if (githubToken) tokenStore.set(githubToken, true);
     const saved = tokenStore.get();
     if (!saved) return showGate();
     await start(new GitHubSource(saved));

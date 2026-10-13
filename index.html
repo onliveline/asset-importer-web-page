@@ -4,11 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-kaEog0AsPo4/9apXRMvp5eF3zpfBg9ltlJNNm2KUPio='; style-src 'self'; img-src 'self' blob: data: https://avatars.githubusercontent.com; connect-src https://api.github.com https://media.githubusercontent.com blob: data: 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-kaEog0AsPo4/9apXRMvp5eF3zpfBg9ltlJNNm2KUPio='; style-src 'self'; img-src 'self' blob: data: https://avatars.githubusercontent.com; connect-src https://api.github.com https://media.githubusercontent.com https://hqejsjjnstuifxtejosx.supabase.co blob: data: 'self'; base-uri 'none'; form-action 'none'">
 <title>onVR Asset Library</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="styles.css">
 <script type="importmap">{"imports":{"three":"./vendor/three/three.module.min.js","three/addons/":"./vendor/three/addons/"}}</script>
+<script src="vendor/supabase/supabase.js"></script>
 <script type="module" src="app.js"></script>
 </head>
 <body>
@@ -16,13 +17,15 @@
 <section id="gate" class="gate" hidden>
   <form id="gate-form" class="gate-card" autocomplete="off">
     <div class="brand"><span class="brand-mark"></span>onVR Asset Library</div>
-    <h1>Sign in with a GitHub token</h1>
-    <p class="muted">Assets live in a private repository. Your token is checked against GitHub. If you can read the repository, you can browse the library.</p>
-    <label for="token">Fine-grained personal access token</label>
+    <h1>Sign in</h1>
+    <p class="muted">For members of the onliveline GitHub organization.</p>
+    <button id="github-signin" type="button" class="primary github">Sign in with GitHub</button>
+    <p id="gate-error" class="error" role="alert" hidden></p>
+    <div class="divider"><span>or use a personal access token</span></div>
+    <label for="token">GitHub personal access token</label>
     <input id="token" type="password" spellcheck="false" placeholder="github_pat_…" required>
     <label class="check"><input id="remember" type="checkbox"> Remember on this device</label>
-    <p id="gate-error" class="error" role="alert" hidden></p>
-    <button id="gate-submit" type="submit" class="primary">Open library</button>
+    <button id="gate-submit" type="submit" class="ghost">Open library with token</button>
     <details class="howto">
       <summary>How to create the token</summary>
       <ol>
