@@ -12,3 +12,16 @@ try {
 } catch {
   document.documentElement.lang = /^de\b/i.test(navigator.language || '') ? 'de' : 'en';
 }
+
+// If the app fails while starting (e.g. a browser still holding files from an older release),
+// say so instead of leaving a blank page. Once the sign-in card or the library shows, this stays quiet.
+function showStartupProblem() {
+  const gate = document.getElementById('gate'), app = document.getElementById('app'), box = document.getElementById('fatal');
+  if (!box || (gate && !gate.hidden) || (app && !app.hidden)) return;
+  box.textContent = document.documentElement.lang === 'de'
+    ? 'Die Seite konnte nicht gestartet werden. Bitte mit Strg+F5 (Mac: Cmd+Shift+R) neu laden.'
+    : 'The page could not start. Please reload with Ctrl+F5 (Mac: Cmd+Shift+R).';
+  box.hidden = false;
+}
+addEventListener('error', showStartupProblem);
+addEventListener('unhandledrejection', showStartupProblem);

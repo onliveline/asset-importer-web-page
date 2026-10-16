@@ -1,7 +1,7 @@
-import { OWNER, REPO } from './config.js';
-import { tokenStore, GitHubSource, LocalSource, AuthError, saveEdit } from './source.js';
-import { githubSignInAvailable, signInWithGitHub, completeGitHubSignIn, signOut } from './auth.js';
-import { t, term, lang, setLang, translatePage, onLangChange } from './i18n.js';
+import { OWNER, REPO } from './config.js?v=f2cc7786';
+import { tokenStore, GitHubSource, LocalSource, AuthError, saveEdit } from './source.js?v=f2cc7786';
+import { githubSignInAvailable, signInWithGitHub, completeGitHubSignIn, signOut } from './auth.js?v=f2cc7786';
+import { t, term, lang, setLang, translatePage, onLangChange } from './i18n.js?v=f2cc7786';
 
 const $ = id => document.getElementById(id);
 const isLocalPreview = ['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('local');
@@ -26,7 +26,7 @@ const checked = new Set(); // asset ids ticked for bulk download
 // The 3D viewer (three.js) is loaded on demand, so the list appears without waiting for it.
 let viewerReady = null;
 function loadViewer() {
-  viewerReady ??= import('./viewer.js').then(({ Viewer }) => {
+  viewerReady ??= import('./viewer.js?v=f2cc7786').then(({ Viewer }) => {
     viewer = new Viewer($('viewport'));
     if (isLocalPreview) window.viewer = viewer; // console access for local debugging
     viewer.onTick = updateTimeline;
