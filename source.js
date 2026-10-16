@@ -1,5 +1,5 @@
-import { OWNER, REPO, BRANCH, CATALOG_PATH } from './config.js?v=f2cc7786';
-import { t } from './i18n.js?v=f2cc7786';
+import { OWNER, REPO, BRANCH, CATALOG_PATH } from './config.js?v=ec7525fa';
+import { t } from './i18n.js?v=ec7525fa';
 
 const API = 'https://api.github.com';
 const KEY = 'onvr-asset-library-token';

@@ -1,7 +1,7 @@
-import { OWNER, REPO } from './config.js?v=f2cc7786';
-import { tokenStore, GitHubSource, LocalSource, AuthError, saveEdit } from './source.js?v=f2cc7786';
-import { githubSignInAvailable, signInWithGitHub, completeGitHubSignIn, signOut } from './auth.js?v=f2cc7786';
-import { t, term, lang, setLang, translatePage, onLangChange } from './i18n.js?v=f2cc7786';
+import { OWNER, REPO } from './config.js?v=ec7525fa';
+import { tokenStore, GitHubSource, LocalSource, AuthError, saveEdit } from './source.js?v=ec7525fa';
+import { githubSignInAvailable, signInWithGitHub, completeGitHubSignIn, signOut } from './auth.js?v=ec7525fa';
+import { t, term, lang, setLang, translatePage, onLangChange } from './i18n.js?v=ec7525fa';
 
 const $ = id => document.getElementById(id);
 const isLocalPreview = ['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('local');
@@ -26,7 +26,7 @@ const checked = new Set(); // asset ids ticked for bulk download
 // The 3D viewer (three.js) is loaded on demand, so the list appears without waiting for it.
 let viewerReady = null;
 function loadViewer() {
-  viewerReady ??= import('./viewer.js?v=f2cc7786').then(({ Viewer }) => {
+  viewerReady ??= import('./viewer.js?v=ec7525fa').then(({ Viewer }) => {
     viewer = new Viewer($('viewport'));
     if (isLocalPreview) window.viewer = viewer; // console access for local debugging
     viewer.onTick = updateTimeline;
@@ -605,12 +605,15 @@ function formatBytes(n) {
 
 const systemDark = matchMedia('(prefers-color-scheme: dark)');
 const currentTheme = () => document.documentElement.dataset.theme || (systemDark.matches ? 'dark' : 'light');
+// The same switch sits in the header and in the sign-in screen's corner.
 function labelThemeButton() {
   const next = currentTheme() === 'dark' ? 'light' : 'dark';
-  $('theme').textContent = next === 'dark' ? t('theme.dark') : t('theme.light');
-  $('theme').setAttribute('aria-label', next === 'dark' ? t('theme.toDark') : t('theme.toLight'));
+  for (const b of document.querySelectorAll('.theme-btn')) {
+    b.textContent = next === 'dark' ? t('theme.dark') : t('theme.light');
+    b.setAttribute('aria-label', next === 'dark' ? t('theme.toDark') : t('theme.toLight'));
+  }
 }
-$('theme').addEventListener('click', () => {
+for (const b of document.querySelectorAll('.theme-btn')) b.addEventListener('click', () => {
   const next = currentTheme() === 'dark' ? 'light' : 'dark';
   document.documentElement.dataset.theme = next;
   try { localStorage.setItem('onxt-theme', next); } catch { /* not remembered */ }
@@ -621,8 +624,14 @@ labelThemeButton();
 
 // ── Language: DE / EN switch (remembered on this device) ────────────
 
-for (const id of ['lang', 'gate-lang']) $(id).addEventListener('click', () => setLang(lang() === 'de' ? 'en' : 'de'));
+// DE | EN: both shown, the active one highlighted (header and sign-in screen).
+function markLanguage() {
+  for (const b of document.querySelectorAll('[data-lang]')) b.setAttribute('aria-pressed', String(b.dataset.lang === lang()));
+}
+for (const b of document.querySelectorAll('[data-lang]')) b.addEventListener('click', () => { if (b.dataset.lang !== lang()) setLang(b.dataset.lang); });
+markLanguage();
 onLangChange(() => {
+  markLanguage();
   fillHowTo();
   labelThemeButton();
   updateBulk();

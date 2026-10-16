@@ -7,19 +7,19 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-kaEog0AsPo4/9apXRMvp5eF3zpfBg9ltlJNNm2KUPio='; style-src 'self'; img-src 'self' blob: data: https://avatars.githubusercontent.com; connect-src https://api.github.com https://media.githubusercontent.com https://raw.githubusercontent.com https://hqejsjjnstuifxtejosx.supabase.co blob: data: 'self'; font-src 'self'; base-uri 'none'; form-action 'none'">
 <title>onXT Asset Library</title>
 <link rel="icon" href="onxt-logo.webp" type="image/webp">
-<script src="theme.js?v=f2cc7786"></script>
-<link rel="stylesheet" href="styles.css?v=f2cc7786">
+<script src="theme.js?v=ec7525fa"></script>
+<link rel="stylesheet" href="styles.css?v=ec7525fa">
 <script type="importmap">{"imports":{"three":"./vendor/three/three.module.min.js","three/addons/":"./vendor/three/addons/"}}</script>
-<script src="vendor/supabase/supabase.js?v=f2cc7786" defer></script>
-<script type="module" src="app.js?v=f2cc7786"></script>
+<script src="vendor/supabase/supabase.js?v=ec7525fa" defer></script>
+<script type="module" src="app.js?v=ec7525fa"></script>
 </head>
 <body>
 
 <section id="gate" class="gate" hidden>
+  <div class="gate-tools"><div class="lang-seg" role="group" aria-label="Language" data-i18n-aria="lang.group"><button type="button" data-lang="de" lang="de" aria-pressed="false">DE</button><button type="button" data-lang="en" lang="en" aria-pressed="false">EN</button></div><button id="gate-theme" class="ghost theme-btn" type="button">Dark</button></div>
   <form id="gate-form" class="gate-card" autocomplete="off">
     <img class="gate-logo" src="onxt-logo.webp" alt="onXT" width="2000" height="1200">
     <h1>Asset Library</h1>
-    <button id="gate-lang" class="ghost lang-switch" type="button" data-i18n="lang.label" data-i18n-aria="lang.switch">DE</button>
     <p class="muted" data-i18n="gate.lead">For members of the onliveline GitHub organization.</p>
     <button id="github-signin" type="button" class="primary github" data-i18n="gate.github">Sign in with GitHub</button>
     <p id="gate-error" class="error" role="alert" hidden></p>
@@ -46,8 +46,8 @@
     <div class="brand"><img class="brand-logo" src="onxt-logo.webp" alt="onXT" width="2000" height="1200"><span class="product">Asset Library</span></div>
     <div class="topbar-right">
       <span id="who" class="who"></span>
-      <button id="lang" class="ghost lang-switch" type="button" data-i18n="lang.label" data-i18n-aria="lang.switch">DE</button>
-      <button id="theme" class="ghost" type="button">Dark</button>
+      <div class="lang-seg" role="group" aria-label="Language" data-i18n-aria="lang.group"><button type="button" data-lang="de" lang="de" aria-pressed="false">DE</button><button type="button" data-lang="en" lang="en" aria-pressed="false">EN</button></div>
+      <button id="theme" class="ghost theme-btn" type="button">Dark</button>
       <button id="signout" class="ghost" data-i18n="top.signout">Sign out</button>
     </div>
   </header>
