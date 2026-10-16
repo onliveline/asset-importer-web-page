@@ -578,6 +578,24 @@ function formatBytes(n) {
   return n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.round(n / 1e3)} KB`;
 }
 
+// ── Theme: light / dark switch (remembered on this device) ──────────
+
+const systemDark = matchMedia('(prefers-color-scheme: dark)');
+const currentTheme = () => document.documentElement.dataset.theme || (systemDark.matches ? 'dark' : 'light');
+function labelThemeButton() {
+  const next = currentTheme() === 'dark' ? 'light' : 'dark';
+  $('theme').textContent = next === 'dark' ? 'Dark' : 'Light';
+  $('theme').setAttribute('aria-label', `Switch to ${next} mode`);
+}
+$('theme').addEventListener('click', () => {
+  const next = currentTheme() === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem('onxt-theme', next); } catch { /* not remembered */ }
+  labelThemeButton();
+});
+systemDark.addEventListener('change', labelThemeButton);
+labelThemeButton();
+
 // ── Boot ─────────────────────────────────────────────────────────────
 
 (async () => {
