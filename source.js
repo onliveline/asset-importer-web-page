@@ -1,4 +1,5 @@
 import { OWNER, REPO, BRANCH, CATALOG_PATH } from './config.js';
+import { t } from './i18n.js';
 
 const API = 'https://api.github.com';
 const KEY = 'onvr-asset-library-token';
@@ -28,15 +29,15 @@ export class GitHubSource {
     if (etag) headers['If-None-Match'] = etag;
     const res = await fetch(`${API}${path}`, { headers, cache: 'no-store' });
     if (res.status === 304) return res; // unchanged since the cached copy (free: does not count against the rate limit)
-    if (res.status === 401) throw new AuthError('GitHub rejected this token. It may be mistyped, expired or revoked.');
-    if (res.status === 404) throw new AuthError(`This token cannot read ${what}. It needs read access to the onliveline repositories (Contents: Read-only on all of them), or the file has been removed.`);
+    if (res.status === 401) throw new AuthError(t('err.rejected'));
+    if (res.status === 404) throw new AuthError(t('err.noRead', { what }));
     if (res.status === 403) {
       const body = await res.text();
-      if (/SAML|SSO/i.test(body)) throw new AuthError('The organization requires SSO authorization for this token.');
-      if (/rate limit/i.test(body)) throw new Error('GitHub rate limit reached. Try again in a few minutes.');
-      throw new AuthError('This token is not allowed to read the repository. If the organization requires token approval, wait for an admin to approve it.');
+      if (/SAML|SSO/i.test(body)) throw new AuthError(t('err.sso'));
+      if (/rate limit/i.test(body)) throw new Error(t('err.rate'));
+      throw new AuthError(t('err.notAllowed'));
     }
-    if (!res.ok) throw new Error(`GitHub API error ${res.status}.`);
+    if (!res.ok) throw new Error(t('err.api', { status: res.status }));
     return res;
   }
 
@@ -74,7 +75,7 @@ export class GitHubSource {
     const url = `/repos/${repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}?ref=${commit}`;
     if (!asset.lfs) return readWithProgress(await this.api(url, 'application/vnd.github.raw+json', repo), asset.bytes, onProgress);
     const meta = await (await this.api(url, undefined, repo)).json();
-    if (!meta.download_url) throw new Error('GitHub did not return a download link for this file.');
+    if (!meta.download_url) throw new Error(t('err.noLink'));
     return readWithProgress(await fetch(meta.download_url, { cache: 'no-store', referrerPolicy: 'no-referrer' }), asset.bytes, onProgress);
   }
 }
@@ -98,11 +99,11 @@ export async function saveEdit(token, asset, edit) {
     });
     if (res.ok) return;
     if (res.status === 409) continue; // saved by someone else a moment ago: retry on top of it
-    if (res.status === 401) throw new AuthError('GitHub rejected this token. It may be expired.');
-    if (res.status === 403 || res.status === 404) throw new Error(`Your token cannot write to ${OWNER}/${REPO}. Editing needs write access: sign in with GitHub, or use a token with Contents: Read and write on that repository.`);
-    throw new Error(`GitHub API error ${res.status}.`);
+    if (res.status === 401) throw new AuthError(t('err.expired'));
+    if (res.status === 403 || res.status === 404) throw new Error(t('err.noWrite', { repo: `${OWNER}/${REPO}` }));
+    throw new Error(t('err.api', { status: res.status }));
   }
-  throw new Error('Someone else saved this entry at the same time. Try again.');
+  throw new Error(t('err.conflict'));
 }
 
 // The private catalog lives in the same Cache Storage as the models, so Sign out deletes both.
@@ -124,12 +125,12 @@ export class LocalSource {
   async verify() { return { login: 'local preview', avatar: null }; }
   async catalog() { return (await fetch(`../${CATALOG_PATH}`, { cache: 'no-store' })).json(); }
   async modelBytes() {
-    throw new Error('Models live in their source repositories. Add &auth to the address and sign in to view them.');
+    throw new Error(t('err.local'));
   }
 }
 
 async function readWithProgress(res, expected, onProgress) {
-  if (!res.ok) throw new Error(`Download failed (${res.status}).`);
+  if (!res.ok) throw new Error(t('err.download', { status: res.status }));
   const total = Number(res.headers.get('Content-Length')) || expected || 0;
   if (!res.body || !total) return res.arrayBuffer();
   const reader = res.body.getReader();

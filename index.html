@@ -19,22 +19,23 @@
   <form id="gate-form" class="gate-card" autocomplete="off">
     <img class="gate-logo" src="onxt-logo.webp" alt="onXT" width="2000" height="1200">
     <h1>Asset Library</h1>
-    <p class="muted">For members of the onliveline GitHub organization.</p>
-    <button id="github-signin" type="button" class="primary github">Sign in with GitHub</button>
+    <button id="gate-lang" class="ghost lang-switch" type="button" data-i18n="lang.label" data-i18n-aria="lang.switch">DE</button>
+    <p class="muted" data-i18n="gate.lead">For members of the onliveline GitHub organization.</p>
+    <button id="github-signin" type="button" class="primary github" data-i18n="gate.github">Sign in with GitHub</button>
     <p id="gate-error" class="error" role="alert" hidden></p>
-    <div class="divider"><span>or use a personal access token</span></div>
-    <label for="token">GitHub personal access token</label>
+    <div class="divider"><span data-i18n="gate.or">or use a personal access token</span></div>
+    <label for="token" data-i18n="gate.tokenLabel">GitHub personal access token</label>
     <input id="token" type="password" spellcheck="false" placeholder="github_pat_…" required>
-    <label class="check"><input id="remember" type="checkbox"> Remember on this device</label>
-    <button id="gate-submit" type="submit" class="ghost">Open library with token</button>
+    <label class="check"><input id="remember" type="checkbox"> <span data-i18n="gate.remember">Remember on this device</span></label>
+    <button id="gate-submit" type="submit" class="ghost" data-i18n="gate.open">Open library with token</button>
     <details class="howto">
-      <summary>How to create the token</summary>
+      <summary data-i18n="gate.howto">How to create the token</summary>
       <ol>
-        <li>Open <a id="pat-link" target="_blank" rel="noopener noreferrer">GitHub → Fine-grained tokens → Generate new token</a>.</li>
-        <li>Resource owner: <b id="pat-owner"></b>. Expiration: 90 days or less.</li>
-        <li>Repository access: <b>Only select repositories</b> → <b id="pat-repo"></b>.</li>
-        <li>Permissions → Repository → <b>Contents: Read-only</b>. Nothing else.</li>
-        <li>Generate, copy, paste above. If the organization requires approval, wait for an admin to approve it.</li>
+        <li data-i18n-html="gate.step1"></li>
+        <li data-i18n-html="gate.step2"></li>
+        <li data-i18n-html="gate.step3"></li>
+        <li data-i18n-html="gate.step4"></li>
+        <li data-i18n-html="gate.step5"></li>
       </ol>
     </details>
   </form>
@@ -45,29 +46,30 @@
     <div class="brand"><img class="brand-logo" src="onxt-logo.webp" alt="onXT" width="2000" height="1200"><span class="product">Asset Library</span></div>
     <div class="topbar-right">
       <span id="who" class="who"></span>
+      <button id="lang" class="ghost lang-switch" type="button" data-i18n="lang.label" data-i18n-aria="lang.switch">DE</button>
       <button id="theme" class="ghost" type="button">Dark</button>
-      <button id="signout" class="ghost">Sign out</button>
+      <button id="signout" class="ghost" data-i18n="top.signout">Sign out</button>
     </div>
   </header>
 
   <aside class="sidebar">
-    <input id="search" type="search" placeholder="Search name or tag" aria-label="Search assets">
-    <div class="chips" role="group" aria-label="Filter">
-      <button class="chip" data-filter="all" aria-pressed="true">All</button>
+    <input id="search" type="search" placeholder="Search name or tag" aria-label="Search assets" data-i18n-placeholder="search.placeholder" data-i18n-aria="search.aria">
+    <div class="chips" role="group" aria-label="Filter" data-i18n-aria="chips.aria">
+      <button class="chip" data-filter="all" aria-pressed="true" data-i18n="chip.all">All</button>
       <button class="chip" data-filter="glb" aria-pressed="false">GLB</button>
       <button class="chip" data-filter="fbx" aria-pressed="false">FBX</button>
-      <button class="chip" data-filter="animated" aria-pressed="false">Animated</button>
+      <button class="chip" data-filter="animated" aria-pressed="false" data-i18n="chip.animated">Animated</button>
     </div>
     <div class="facets">
-      <select id="f-domain" aria-label="Domain"></select>
-      <select id="f-project" aria-label="Client or project"></select>
-      <select id="f-type" class="wide" aria-label="Type"></select>
-      <input id="f-tag" class="wide" list="f-tags" placeholder="Add a tag filter…" aria-label="Filter by tag" autocomplete="off">
+      <select id="f-domain" aria-label="Domain" data-i18n-aria="facet.domain"></select>
+      <select id="f-project" aria-label="Client or project" data-i18n-aria="facet.project"></select>
+      <select id="f-type" class="wide" aria-label="Type" data-i18n-aria="facet.type"></select>
+      <input id="f-tag" class="wide" list="f-tags" placeholder="Add a tag filter…" aria-label="Filter by tag" autocomplete="off" data-i18n-placeholder="facet.tagPlaceholder" data-i18n-aria="facet.tagAria">
       <datalist id="f-tags"></datalist>
     </div>
     <div id="active" class="active-filters" hidden></div>
-    <ul id="list" class="list" aria-label="Assets"></ul>
-    <p id="list-empty" class="muted small" hidden>No assets match.</p>
+    <ul id="list" class="list" aria-label="Assets" data-i18n-aria="list.aria"></ul>
+    <p id="list-empty" class="muted small" hidden data-i18n="list.empty">No assets match.</p>
     <div class="bulk">
       <button id="select-all" class="ghost small-btn">Select all</button>
       <button id="bulk-download" class="primary small-btn" disabled>Download selected</button>
@@ -77,22 +79,22 @@
 
   <main class="stage">
     <div id="viewport" class="viewport">
-      <div id="placeholder" class="placeholder muted">Select an asset to view it.</div>
+      <div id="placeholder" class="placeholder muted" data-i18n="stage.placeholder">Select an asset to view it.</div>
       <div id="loading" class="loading" hidden>
         <div class="bar"><div id="loading-fill" class="bar-fill"></div></div>
         <span id="loading-text" class="small"></span>
       </div>
       <div class="view-tools">
-        <button id="reset-view" class="tool" title="Reset view">Reset view</button>
-        <button id="auto-rotate" class="tool" aria-pressed="false" title="Auto-rotate">Auto-rotate</button>
+        <button id="reset-view" class="tool" data-i18n="stage.reset" data-i18n-title="stage.reset">Reset view</button>
+        <button id="auto-rotate" class="tool" aria-pressed="false" data-i18n="stage.rotate" data-i18n-title="stage.rotate">Auto-rotate</button>
       </div>
     </div>
     <div id="anim" class="anim-bar" hidden>
       <button id="anim-play" class="primary small-btn">Pause</button>
-      <select id="anim-clip" aria-label="Animation clip"></select>
-      <input id="anim-scrub" type="range" min="0" max="1000" value="0" aria-label="Animation time">
+      <select id="anim-clip" aria-label="Animation clip" data-i18n-aria="anim.clip"></select>
+      <input id="anim-scrub" type="range" min="0" max="1000" value="0" aria-label="Animation time" data-i18n-aria="anim.time">
       <span id="anim-time" class="small mono">0.00s</span>
-      <select id="anim-speed" aria-label="Playback speed">
+      <select id="anim-speed" aria-label="Playback speed" data-i18n-aria="anim.speed">
         <option value="0.25">0.25×</option><option value="0.5">0.5×</option>
         <option value="1" selected>1×</option><option value="2">2×</option>
       </select>
@@ -103,31 +105,31 @@
     <h2 id="d-name"></h2>
     <div id="d-badges" class="badges"></div>
     <dl class="meta">
-      <dt>Size</dt><dd id="d-size"></dd>
-      <dt>Meshes</dt><dd id="d-meshes"></dd>
-      <dt>Triangles</dt><dd id="d-tris"></dd>
-      <dt>Clips</dt><dd id="d-clips"></dd>
-      <dt>Source repo</dt><dd id="d-repo" class="mono wrap"></dd>
-      <dt>Source path</dt><dd id="d-path" class="mono wrap"></dd>
+      <dt data-i18n="d.size">Size</dt><dd id="d-size"></dd>
+      <dt data-i18n="d.meshes">Meshes</dt><dd id="d-meshes"></dd>
+      <dt data-i18n="d.tris">Triangles</dt><dd id="d-tris"></dd>
+      <dt data-i18n="d.clips">Clips</dt><dd id="d-clips"></dd>
+      <dt data-i18n="d.repo">Source repo</dt><dd id="d-repo" class="mono wrap"></dd>
+      <dt data-i18n="d.path">Source path</dt><dd id="d-path" class="mono wrap"></dd>
       <dt>Commit</dt><dd id="d-commit" class="mono"></dd>
       <dt>SHA-256</dt><dd id="d-sha" class="mono"></dd>
-      <dt>Tags</dt><dd id="d-tags"></dd>
+      <dt data-i18n="d.tags">Tags</dt><dd id="d-tags"></dd>
     </dl>
-    <button id="edit-open" class="ghost">Edit name &amp; tags</button>
+    <button id="edit-open" class="ghost" data-i18n="edit.open">Edit name &amp; tags</button>
     <form id="edit" class="edit" hidden>
-      <label for="edit-name">Name</label>
+      <label for="edit-name" data-i18n="edit.name">Name</label>
       <input id="edit-name" type="text" maxlength="60" required>
-      <span class="label">Tags</span>
+      <span class="label" data-i18n="edit.tags">Tags</span>
       <div id="edit-tags" class="edit-tags"></div>
-      <input id="edit-add" type="text" maxlength="40" placeholder="Add a tag and press Enter" aria-label="Add a tag">
-      <p class="muted small">Changes the catalog only, never the model file. Saved to the library repository under your GitHub name.</p>
+      <input id="edit-add" type="text" maxlength="40" placeholder="Add a tag and press Enter" aria-label="Add a tag" data-i18n-placeholder="edit.add" data-i18n-aria="edit.addAria">
+      <p class="muted small" data-i18n="edit.note">Changes the catalog only, never the model file. Saved to the library repository under your GitHub name.</p>
       <div class="edit-actions">
-        <button id="edit-save" type="submit" class="primary">Save</button>
-        <button id="edit-cancel" type="button" class="ghost">Cancel</button>
+        <button id="edit-save" type="submit" class="primary" data-i18n="edit.save">Save</button>
+        <button id="edit-cancel" type="button" class="ghost" data-i18n="edit.cancel">Cancel</button>
       </div>
     </form>
     <p id="edit-status" class="small" role="status" hidden></p>
-    <button id="download" class="primary">Download original</button>
+    <button id="download" class="primary" data-i18n="d.download">Download original</button>
   </aside>
 </div>
 

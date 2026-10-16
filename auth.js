@@ -1,5 +1,6 @@
 import { OWNER, SUPABASE_URL, SUPABASE_KEY } from './config.js';
 import { AuthError } from './source.js';
+import { t } from './i18n.js';
 
 // Sign in with GitHub through Supabase (it holds the OAuth client secret).
 // The GitHub token returned to the browser is what reads the private repository,
@@ -25,13 +26,13 @@ export function signInWithGitHub() {
 
 /** After the GitHub redirect: the member's GitHub token, or null when this load is not a sign-in return. */
 export async function completeGitHubSignIn() {
-  if (returnError) { cleanUrl(); throw new AuthError(`GitHub sign-in was not completed: ${returnError}`); }
+  if (returnError) { cleanUrl(); throw new AuthError(t('err.signinIncomplete', { error: returnError })); }
   if (!returning || !supabase) return null;
   const { data, error } = await supabase.auth.getSession();
   cleanUrl();
-  if (error) throw new AuthError(`Sign-in failed: ${error.message}`);
+  if (error) throw new AuthError(t('err.signinFailed', { error: error.message }));
   const token = data.session?.provider_token;
-  if (!token) throw new AuthError('GitHub did not return an access token. Please try signing in again.');
+  if (!token) throw new AuthError(t('err.noToken'));
   await requireMembership(token);
   return token;
 }
@@ -46,9 +47,9 @@ async function requireMembership(token) {
   if (res.ok && (await res.json()).state === 'active') return;
   await signOut();
   if (res.status === 403) {
-    throw new AuthError(`${OWNER} has not approved the onVR Asset Library app yet. An organization owner can approve it under Settings → Third-party access → OAuth app policy.`);
+    throw new AuthError(t('err.appNotApproved', { org: OWNER }));
   }
-  throw new AuthError(`This GitHub account is not an active member of ${OWNER}.`);
+  throw new AuthError(t('err.notMember', { org: OWNER }));
 }
 
 export async function signOut() {

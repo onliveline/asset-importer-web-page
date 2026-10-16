@@ -1,6 +1,7 @@
 import { OWNER, REPO } from './config.js';
 import { tokenStore, GitHubSource, LocalSource, AuthError, saveEdit } from './source.js';
 import { githubSignInAvailable, signInWithGitHub, completeGitHubSignIn, signOut } from './auth.js';
+import { t, term, lang, setLang, translatePage, onLangChange } from './i18n.js';
 
 const $ = id => document.getElementById(id);
 const isLocalPreview = ['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('local');
@@ -70,15 +71,19 @@ async function start(src) {
   if (assets.some(a => a.id === fromHash)) select(fromHash);
 }
 
-$('pat-link').href = 'https://github.com/settings/personal-access-tokens/new';
-$('pat-owner').textContent = OWNER;
-$('pat-repo').textContent = `${OWNER}/${REPO}`;
+// The token how-to is translated HTML; fill its link and owner after every translation.
+function fillHowTo() {
+  $('pat-link').href = 'https://github.com/settings/personal-access-tokens/new';
+  $('pat-owner').textContent = OWNER;
+}
+translatePage();
+fillHowTo();
 
 $('github-signin').hidden = !githubSignInAvailable;
 $('github-signin').addEventListener('click', async () => {
   $('github-signin').disabled = true;
   const { error } = await signInWithGitHub();
-  if (error) { $('github-signin').disabled = false; showGate(`Could not start GitHub sign-in: ${error.message}`); }
+  if (error) { $('github-signin').disabled = false; showGate(t('err.signinStart', { error: error.message })); }
 });
 
 $('gate-form').addEventListener('submit', async e => {
@@ -127,7 +132,6 @@ function passes(a, skip) {
 
 const matches = a => passes(a);
 const filtered = () => filter !== 'all' || facets.domain || facets.project || facets.type || facets.tags.length || $('search').value.trim();
-const pretty = s => s.replace(/[-/]/g, m => (m === '/' ? ' / ' : ' ')).replace(/\b\w/g, c => c.toUpperCase());
 
 function countBy(list, key) {
   const n = new Map();
@@ -142,23 +146,23 @@ function option(value, text, selected) {
 // Rebuilds the dropdowns with counts for the current results, so you only ever pick something that exists.
 function renderFacets() {
   const dom = countBy(assets.filter(a => passes(a, 'domain')), a => a.domain || '-');
-  $('f-domain').replaceChildren(option('', 'All domains', !facets.domain),
-    ...[...dom].sort((x, y) => x[0].localeCompare(y[0])).map(([v, n]) => option(v, `${v === '-' ? 'Not tagged yet' : pretty(v.toLowerCase())} (${n})`, v === facets.domain)));
+  $('f-domain').replaceChildren(option('', t('facet.allDomains'), !facets.domain),
+    ...[...dom].sort((x, y) => x[0].localeCompare(y[0])).map(([v, n]) => option(v, `${v === '-' ? t('facet.untagged') : v.split('/').map(term).join(' / ')} (${n})`, v === facets.domain)));
 
   const proj = countBy(assets.filter(a => passes(a, 'project')), a => a.projects);
-  $('f-project').replaceChildren(option('', 'All projects', !facets.project),
+  $('f-project').replaceChildren(option('', t('facet.allProjects'), !facets.project),
     ...[...proj].sort((x, y) => x[0].localeCompare(y[0])).map(([v, n]) => option(v, `${v} (${n})`, v === facets.project)));
 
   const typed = assets.filter(a => passes(a, 'type') && a.category);
   const cats = countBy(typed, a => a.category), subs = countBy(typed, a => `${a.category}/${a.subcategory}`);
   const groups = [...cats].sort((x, y) => y[1] - x[1]).map(([cat, n]) => {
-    const g = Object.assign(document.createElement('optgroup'), { label: pretty(cat) });
-    g.append(option(cat, `All ${cat} (${n})`, facets.type === cat),
+    const g = Object.assign(document.createElement('optgroup'), { label: term(cat) });
+    g.append(option(cat, `${t('facet.allOf', { name: term(cat) })} (${n})`, facets.type === cat),
       ...[...subs].filter(([k]) => k.startsWith(cat + '/')).sort((x, y) => y[1] - x[1])
-        .map(([k, m]) => option(k, `${pretty(k.split('/')[1])} (${m})`, facets.type === k)));
+        .map(([k, m]) => option(k, `${term(k.split('/')[1])} (${m})`, facets.type === k)));
     return g;
   });
-  $('f-type').replaceChildren(option('', 'All types', !facets.type), ...groups);
+  $('f-type').replaceChildren(option('', t('facet.allTypes'), !facets.type), ...groups);
 
   const tags = countBy(assets.filter(a => passes(a, 'tags')), a => a.tags);
   $('f-tags').replaceChildren(...[...tags].filter(([t]) => !facets.tags.includes(t)).sort((x, y) => y[1] - x[1]).slice(0, 400)
@@ -166,16 +170,16 @@ function renderFacets() {
 
   for (const id of ['f-domain', 'f-project', 'f-type']) $(id).classList.toggle('on', !!$(id).value);
   const active = $('active');
-  active.replaceChildren(...facets.tags.map(t => {
-    const chip = Object.assign(document.createElement('span'), { className: 'tag', textContent: t });
-    const x = Object.assign(document.createElement('button'), { textContent: '×', title: `Remove filter ${t}` });
-    x.setAttribute('aria-label', `Remove tag filter ${t}`);
-    x.addEventListener('click', () => { facets.tags = facets.tags.filter(v => v !== t); refilter(); });
+  active.replaceChildren(...facets.tags.map(tag => {
+    const chip = Object.assign(document.createElement('span'), { className: 'tag', textContent: tag });
+    const x = Object.assign(document.createElement('button'), { textContent: '×', title: t('filter.remove', { tag }) });
+    x.setAttribute('aria-label', t('filter.removeAria', { tag }));
+    x.addEventListener('click', () => { facets.tags = facets.tags.filter(v => v !== tag); refilter(); });
     chip.append(x);
     return chip;
   }));
   if (filtered()) {
-    const clear = Object.assign(document.createElement('button'), { className: 'clear', textContent: 'Clear all filters' });
+    const clear = Object.assign(document.createElement('button'), { className: 'clear', textContent: t('filter.clear') });
     clear.addEventListener('click', clearFilters);
     active.append(clear);
   }
@@ -227,13 +231,13 @@ function renderList() {
   const recent = !filtered()
     ? shown.filter(isRecent).sort((a, b) => b.addedAt.localeCompare(a.addedAt)) : [];
   if (recent.length) {
-    list.append(group(`Recently added (${recent.length})`));
+    list.append(group(t('list.recent', { n: recent.length })));
     for (const a of recent) list.append(row(a));
-    list.append(group('All models'));
+    list.append(group(t('list.all')));
   }
   for (const a of shown.slice(0, listLimit)) list.append(row(a));
   if (shown.length > listLimit) {
-    const more = Object.assign(document.createElement('button'), { className: 'more', textContent: `Show more (${shown.length - listLimit} left)` });
+    const more = Object.assign(document.createElement('button'), { className: 'more', textContent: t('list.more', { n: shown.length - listLimit }) });
     more.addEventListener('click', () => { listLimit += 500; renderList(); });
     const li = document.createElement('li');
     li.append(more);
@@ -250,8 +254,8 @@ function group(text) {
 function row(a) {
   const li = document.createElement('li');
   li.className = 'row';
-  const box = Object.assign(document.createElement('input'), { type: 'checkbox', checked: checked.has(a.id), title: 'Select for download' });
-  box.setAttribute('aria-label', `Select ${a.name}`);
+  const box = Object.assign(document.createElement('input'), { type: 'checkbox', checked: checked.has(a.id), title: t('list.selectFor') });
+  box.setAttribute('aria-label', t('list.selectAria', { name: a.name }));
   box.addEventListener('change', () => { box.checked ? checked.add(a.id) : checked.delete(a.id); updateBulk(); });
   const btn = document.createElement('button');
   btn.className = 'item';
@@ -263,8 +267,8 @@ function row(a) {
   const meta = document.createElement('span');
   meta.className = 'item-meta';
   meta.append(badge(a.format.toUpperCase(), a.format));
-  if (a.animated) meta.append(badge('Animated', 'anim'));
-  if (isRecent(a)) meta.append(badge('New', 'new'));
+  if (a.animated) meta.append(badge(t('badge.animated'), 'anim'));
+  if (isRecent(a)) meta.append(badge(t('badge.new'), 'new'));
   meta.append(Object.assign(document.createElement('span'), { className: 'muted small', textContent: formatBytes(a.bytes) }));
   btn.append(name, meta);
   li.append(box, btn);
@@ -276,9 +280,9 @@ function row(a) {
 function updateBulk() {
   const n = checked.size;
   $('bulk-download').disabled = n === 0;
-  $('bulk-download').textContent = n ? `Download selected (${n})` : 'Download selected';
+  $('bulk-download').textContent = n ? t('bulk.downloadN', { n }) : t('bulk.download');
   const visible = assets.filter(matches);
-  $('select-all').textContent = visible.length && visible.every(a => checked.has(a.id)) ? 'Clear' : 'Select all';
+  $('select-all').textContent = visible.length && visible.every(a => checked.has(a.id)) ? t('bulk.clear') : t('bulk.selectAll');
 }
 
 $('select-all').addEventListener('click', () => {
@@ -365,21 +369,21 @@ $('bulk-download').addEventListener('click', async () => {
   try {
     const files = {};
     for (const [i, a] of picked.entries()) {
-      const bytes = await getBytes(a, p => { status.textContent = `Downloading ${i + 1}/${picked.length}: ${a.name} ${Math.round(p * 100)}%`; });
+      const bytes = await getBytes(a, p => { status.textContent = t('bulk.progress', { i: i + 1, n: picked.length, name: a.name, p: Math.round(p * 100) }); });
       files[`${a.id}/${fileName(a)}`] = new Uint8Array(bytes);
     }
     if (picked.length === 1) {
       saveFile(fileName(picked[0]), cache.get(picked[0].id));
     } else {
-      status.textContent = 'Packing zip…';
+      status.textContent = t('bulk.packing');
       await new Promise(r => setTimeout(r, 0));
       const { zipSync } = await import('three/addons/libs/fflate.module.js');
       saveFile(`onvr-assets-${picked.length}.zip`, zipSync(files, { level: 0 }));
     }
-    status.textContent = `Downloaded ${picked.length} asset${picked.length > 1 ? 's' : ''}.`;
+    status.textContent = picked.length > 1 ? t('bulk.done', { n: picked.length }) : t('bulk.doneOne');
   } catch (err) {
     if (err instanceof AuthError) { tokenStore.clear(); showGate(err.message); return; }
-    status.textContent = `Download failed: ${err.message}`;
+    status.textContent = t('bulk.failed', { error: err.message });
   } finally {
     updateBulk();
   }
@@ -407,20 +411,20 @@ async function select(id) {
   const ticket = ++loadToken;
   $('placeholder').hidden = true;
   $('anim').hidden = true;
-  setLoading(0, `Downloading ${asset.name}…`);
+  setLoading(0, t('stage.downloading', { name: asset.name }));
   try {
-    const bytes = await getBytes(asset, p => ticket === loadToken && setLoading(p, `Downloading ${asset.name}… ${Math.round(p * 100)}%`));
+    const bytes = await getBytes(asset, p => ticket === loadToken && setLoading(p, t('stage.downloadingP', { name: asset.name, p: Math.round(p * 100) })));
     if (ticket !== loadToken) return;
-    setLoading(1, 'Preparing model…');
+    setLoading(1, t('stage.preparing'));
     // Loaders may detach or modify the buffer; give them a copy and keep the original for download.
     await loadViewer();
     if (ticket !== loadToken) return;
     const info = await viewer.show(asset.format, bytes.slice(0));
     if (ticket !== loadToken) return;
     currentBytes = bytes;
-    $('d-meshes').textContent = info.meshes.toLocaleString();
-    $('d-tris').textContent = info.triangles.toLocaleString();
-    $('d-clips').textContent = info.clips.length ? info.clips.map(c => c.name || 'Unnamed').join(', ') : 'None';
+    $('d-meshes').textContent = info.meshes.toLocaleString(lang());
+    $('d-tris').textContent = info.triangles.toLocaleString(lang());
+    $('d-clips').textContent = info.clips.length ? info.clips.map(c => c.name || t('anim.unnamed')).join(', ') : t('anim.none');
     setupAnimation(info.clips);
     $('loading').hidden = true;
   } catch (err) {
@@ -428,7 +432,7 @@ async function select(id) {
     $('loading').hidden = true;
     if (err instanceof AuthError) { tokenStore.clear(); showGate(err.message); return; }
     $('placeholder').hidden = false;
-    $('placeholder').textContent = `Could not load ${asset.name}: ${err.message}`;
+    $('placeholder').textContent = t('stage.failed', { name: asset.name, error: err.message });
     console.error(err);
   }
 }
@@ -442,24 +446,24 @@ function setLoading(fraction, text) {
 function showDetails(a) {
   $('details').hidden = false;
   $('d-name').textContent = a.name;
-  $('d-badges').replaceChildren(badge(a.format.toUpperCase(), a.format), ...(a.animated ? [badge('Animated', 'anim')] : []), ...(isRecent(a) ? [badge('New', 'new')] : []));
+  $('d-badges').replaceChildren(badge(a.format.toUpperCase(), a.format), ...(a.animated ? [badge(t('badge.animated'), 'anim')] : []), ...(isRecent(a) ? [badge(t('badge.new'), 'new')] : []));
   $('d-size').textContent = formatBytes(a.bytes);
   for (const k of ['d-meshes', 'd-tris', 'd-clips']) $(k).textContent = '…';
   const others = (a.occurrences?.length || 1) - 1;
-  $('d-repo').textContent = a.source?.repo ? a.source.repo + (others ? ` (+${others} other place${others > 1 ? 's' : ''})` : '') : '—';
+  $('d-repo').textContent = a.source?.repo ? a.source.repo + (others ? ` (${others > 1 ? t('d.otherPlaces', { n: others }) : t('d.otherPlace')})` : '') : '—';
   $('d-repo').title = (a.occurrences || []).map(o => `${o.repo}/${o.path} [${o.branches.join(', ')}]`).join('\n');
   $('d-path').textContent = a.source?.path || '—';
   $('d-commit').textContent = a.source?.commit ? a.source.commit.slice(0, 10) : '—';
   $('d-sha').textContent = a.sha256 ? `${a.sha256.slice(0, 16)}…` : '—';
   $('d-sha').title = a.sha256 || '';
   // Each tag filters the list to models that share it.
-  $('d-tags').replaceChildren(...(a.tags || []).flatMap((t, i) => {
-    const b = Object.assign(document.createElement('button'), { className: 'tag-link', textContent: t, title: `Show models tagged ${t}` });
-    b.addEventListener('click', () => addTagFilter(t));
+  $('d-tags').replaceChildren(...(a.tags || []).flatMap((tag, i) => {
+    const b = Object.assign(document.createElement('button'), { className: 'tag-link', textContent: tag, title: t('d.tagLink', { tag }) });
+    b.addEventListener('click', () => addTagFilter(tag));
     return i ? [', ', b] : [b];
   }));
   if (!(a.tags || []).length) $('d-tags').textContent = '—';
-  $('d-tags').title = a.edited ? `Edited by ${a.edited.by || 'someone'} ${a.edited.at || ''}` : '';
+  $('d-tags').title = a.edited ? t('d.editedBy', { who: a.edited.by || t('d.someone'), at: a.edited.at || '' }) : '';
   closeEditor();
 }
 
@@ -468,10 +472,10 @@ function showDetails(a) {
 let editTags = [];
 
 function renderEditTags() {
-  $('edit-tags').replaceChildren(...editTags.map((t, i) => {
-    const chip = Object.assign(document.createElement('span'), { className: 'tag', textContent: t });
-    const x = Object.assign(document.createElement('button'), { type: 'button', textContent: '×', title: `Remove ${t}` });
-    x.setAttribute('aria-label', `Remove tag ${t}`);
+  $('edit-tags').replaceChildren(...editTags.map((tag, i) => {
+    const chip = Object.assign(document.createElement('span'), { className: 'tag', textContent: tag });
+    const x = Object.assign(document.createElement('button'), { type: 'button', textContent: '×', title: t('edit.remove', { tag }) });
+    x.setAttribute('aria-label', t('edit.removeAria', { tag }));
     x.addEventListener('click', () => { editTags.splice(i, 1); renderEditTags(); });
     chip.append(x);
     return chip;
@@ -495,7 +499,7 @@ $('edit-open').addEventListener('click', () => {
   $('edit-status').hidden = true;
   if (source instanceof LocalSource) {
     $('edit-status').hidden = false;
-    $('edit-status').textContent = 'Sign in to edit (add &auth to the address in local preview).';
+    $('edit-status').textContent = t('edit.local');
     return;
   }
   $('edit-name').value = a.name;
@@ -521,7 +525,7 @@ $('edit').addEventListener('submit', async e => {
   const edit = { name: $('edit-name').value.trim() || a.name, tags: [...editTags], by: login, at: new Date().toISOString().replace(/\.\d+Z$/, 'Z') };
   $('edit-save').disabled = true;
   $('edit-status').hidden = false;
-  $('edit-status').textContent = 'Saving…';
+  $('edit-status').textContent = t('edit.saving');
   try {
     await saveEdit(source.token, a, edit);
     Object.assign(a, { name: edit.name, tags: edit.tags, edited: { by: edit.by, at: edit.at } });
@@ -529,10 +533,10 @@ $('edit').addEventListener('submit', async e => {
     refilter();
     showDetails(a);
     $('edit-status').hidden = false;
-    $('edit-status').textContent = 'Saved. Everyone sees it after the catalog updates (about a minute).';
+    $('edit-status').textContent = t('edit.saved');
   } catch (err) {
     if (err instanceof AuthError) { tokenStore.clear(); showGate(err.message); return; }
-    $('edit-status').textContent = `Not saved: ${err.message}`;
+    $('edit-status').textContent = t('edit.notSaved', { error: err.message });
   } finally {
     $('edit-save').disabled = false;
   }
@@ -548,9 +552,9 @@ function setupAnimation(list) {
   clips = list;
   $('anim').hidden = clips.length === 0;
   if (!clips.length) return;
-  $('anim-clip').replaceChildren(...clips.map((c, i) => Object.assign(document.createElement('option'), { value: i, textContent: c.name || `Clip ${i + 1}` })));
+  $('anim-clip').replaceChildren(...clips.map((c, i) => Object.assign(document.createElement('option'), { value: i, textContent: c.name || t('anim.clipN', { n: i + 1 }) })));
   paused = false;
-  $('anim-play').textContent = 'Pause';
+  $('anim-play').textContent = t('anim.pause');
   viewer.play(clips[0], Number($('anim-speed').value));
 }
 
@@ -568,7 +572,7 @@ $('anim-clip').addEventListener('change', e => {
 $('anim-play').addEventListener('click', () => {
   paused = !paused;
   viewer.setPaused(paused);
-  $('anim-play').textContent = paused ? 'Play' : 'Pause';
+  $('anim-play').textContent = paused ? t('anim.play') : t('anim.pause');
 });
 $('anim-speed').addEventListener('change', e => viewer.setSpeed(Number(e.target.value)));
 $('anim-scrub').addEventListener('input', e => {
@@ -603,8 +607,8 @@ const systemDark = matchMedia('(prefers-color-scheme: dark)');
 const currentTheme = () => document.documentElement.dataset.theme || (systemDark.matches ? 'dark' : 'light');
 function labelThemeButton() {
   const next = currentTheme() === 'dark' ? 'light' : 'dark';
-  $('theme').textContent = next === 'dark' ? 'Dark' : 'Light';
-  $('theme').setAttribute('aria-label', `Switch to ${next} mode`);
+  $('theme').textContent = next === 'dark' ? t('theme.dark') : t('theme.light');
+  $('theme').setAttribute('aria-label', next === 'dark' ? t('theme.toDark') : t('theme.toLight'));
 }
 $('theme').addEventListener('click', () => {
   const next = currentTheme() === 'dark' ? 'light' : 'dark';
@@ -614,6 +618,23 @@ $('theme').addEventListener('click', () => {
 });
 systemDark.addEventListener('change', labelThemeButton);
 labelThemeButton();
+
+// ── Language: DE / EN switch (remembered on this device) ────────────
+
+for (const id of ['lang', 'gate-lang']) $(id).addEventListener('click', () => setLang(lang() === 'de' ? 'en' : 'de'));
+onLangChange(() => {
+  fillHowTo();
+  labelThemeButton();
+  updateBulk();
+  if (assets.length) { renderFacets(); renderList(); }
+  const a = assets.find(x => x.id === selectedId);
+  if (a && !$('details').hidden) {
+    const keep = ['d-meshes', 'd-tris', 'd-clips'].map(k => $(k).textContent);
+    showDetails(a);
+    ['d-meshes', 'd-tris', 'd-clips'].forEach((k, i) => { $(k).textContent = keep[i]; });
+  }
+  if (!$('anim').hidden) $('anim-play').textContent = paused ? t('anim.play') : t('anim.pause');
+});
 
 // ── Boot ─────────────────────────────────────────────────────────────
 

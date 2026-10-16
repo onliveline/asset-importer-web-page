@@ -327,3 +327,15 @@ button.github { padding: 12px 18px; }
 
 /* Theme switch in the top bar */
 #theme { padding: 7px 14px; font-size: 12px; }
+
+/* Language switch (DE / EN) */
+.lang-switch { padding: 7px 12px; font-size: 12px; min-width: 44px; }
+.gate-card { position: relative; }
+#gate-lang { position: absolute; top: 16px; right: 16px; z-index: 1; background: var(--card); }
+@media (max-width: 720px) {
+  .topbar-right { gap: 6px; }
+  .topbar-right .ghost { padding: 6px 10px; font-size: 12px; min-width: 0; }
+}
+@media (max-width: 420px) {
+  .topbar .product { display: none; }
+}
