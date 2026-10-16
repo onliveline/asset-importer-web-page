@@ -65,6 +65,32 @@ export class GitHubSource {
   }
 }
 
+/**
+ * Saves a human edit of an asset's catalog entry (name, tags) as edits/<sha256>.json in the
+ * library repository, committed with the visitor's own token. The catalog workflow merges it
+ * within about a minute; the model file is never touched.
+ */
+export async function saveEdit(token, asset, edit) {
+  const url = `${API}/repos/${OWNER}/${REPO}/contents/edits/${asset.sha256}.json`;
+  const headers = { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
+  const bytes = new TextEncoder().encode(JSON.stringify(edit, null, 1) + '\n');
+  const content = btoa(Array.from(bytes, b => String.fromCharCode(b)).join(''));
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const current = await fetch(`${url}?ref=${BRANCH}`, { headers, cache: 'no-store' });
+    const sha = current.ok ? (await current.json()).sha : undefined;
+    const res = await fetch(url, {
+      method: 'PUT', headers,
+      body: JSON.stringify({ message: `Edit ${asset.id}: name and tags (${edit.by || 'web'})`, content, branch: BRANCH, sha }),
+    });
+    if (res.ok) return;
+    if (res.status === 409) continue; // saved by someone else a moment ago: retry on top of it
+    if (res.status === 401) throw new AuthError('GitHub rejected this token. It may be expired.');
+    if (res.status === 403 || res.status === 404) throw new Error(`Your token cannot write to ${OWNER}/${REPO}. Editing needs write access: sign in with GitHub, or use a token with Contents: Read and write on that repository.`);
+    throw new Error(`GitHub API error ${res.status}.`);
+  }
+  throw new Error('Someone else saved this entry at the same time. Try again.');
+}
+
 /** Developer mode on localhost: serves the repository folder itself, no token involved. */
 export class LocalSource {
   async verify() { return { login: 'local preview', avatar: null }; }

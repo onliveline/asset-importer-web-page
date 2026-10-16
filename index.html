@@ -103,6 +103,20 @@
       <dt>SHA-256</dt><dd id="d-sha" class="mono"></dd>
       <dt>Tags</dt><dd id="d-tags"></dd>
     </dl>
+    <button id="edit-open" class="ghost">Edit name &amp; tags</button>
+    <form id="edit" class="edit" hidden>
+      <label for="edit-name">Name</label>
+      <input id="edit-name" type="text" maxlength="60" required>
+      <span class="label">Tags</span>
+      <div id="edit-tags" class="edit-tags"></div>
+      <input id="edit-add" type="text" maxlength="40" placeholder="Add a tag and press Enter" aria-label="Add a tag">
+      <p class="muted small">Changes the catalog only, never the model file. Saved to the library repository under your GitHub name.</p>
+      <div class="edit-actions">
+        <button id="edit-save" type="submit" class="primary">Save</button>
+        <button id="edit-cancel" type="button" class="ghost">Cancel</button>
+      </div>
+    </form>
+    <p id="edit-status" class="small" role="status" hidden></p>
     <button id="download" class="primary">Download original</button>
   </aside>
 </div>

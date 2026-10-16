@@ -1,5 +1,5 @@
 import { OWNER, REPO } from './config.js';
-import { tokenStore, GitHubSource, LocalSource, AuthError } from './source.js';
+import { tokenStore, GitHubSource, LocalSource, AuthError, saveEdit } from './source.js';
 import { githubSignInAvailable, signInWithGitHub, completeGitHubSignIn, signOut } from './auth.js';
 import { Viewer } from './viewer.js';
 import { zipSync } from 'three/addons/libs/fflate.module.js';
@@ -8,6 +8,7 @@ const $ = id => document.getElementById(id);
 const isLocalPreview = ['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('local');
 
 let source = null;
+let login = '';      // the signed-in GitHub user, recorded on edits
 let assets = [];
 let recentCutoff = '';   // ISO time; assets added after it are "Recently added"
 let listLimit = 200;     // rows rendered before "Show more"
@@ -42,7 +43,8 @@ async function start(src) {
   recentCutoff = new Date(Date.now() - (data.recentDays || 14) * 864e5).toISOString();
   $('gate').hidden = true;
   $('app').hidden = false;
-  $('who').textContent = who.login ? who.login : '';
+  login = who.login || '';
+  $('who').textContent = login;
   viewer ??= new Viewer($('viewport'));
   if (isLocalPreview) window.viewer = viewer; // console access for local debugging
   viewer.onTick = updateTimeline;
@@ -339,7 +341,84 @@ function showDetails(a) {
   $('d-sha').textContent = a.sha256 ? `${a.sha256.slice(0, 16)}…` : '—';
   $('d-sha').title = a.sha256 || '';
   $('d-tags').textContent = (a.tags || []).join(', ') || '—';
+  $('d-tags').title = a.edited ? `Edited by ${a.edited.by || 'someone'} ${a.edited.at || ''}` : '';
+  closeEditor();
 }
+
+// ── Editing name & tags (catalog only, never the model file) ─────────
+
+let editTags = [];
+
+function renderEditTags() {
+  $('edit-tags').replaceChildren(...editTags.map((t, i) => {
+    const chip = Object.assign(document.createElement('span'), { className: 'tag', textContent: t });
+    const x = Object.assign(document.createElement('button'), { type: 'button', textContent: '×', title: `Remove ${t}` });
+    x.setAttribute('aria-label', `Remove tag ${t}`);
+    x.addEventListener('click', () => { editTags.splice(i, 1); renderEditTags(); });
+    chip.append(x);
+    return chip;
+  }));
+}
+
+function addTags(text) {
+  for (const t of text.split(',').map(x => x.trim().slice(0, 40)).filter(Boolean))
+    if (!editTags.some(e => e.toLowerCase() === t.toLowerCase())) editTags.push(t);
+  renderEditTags();
+}
+
+function closeEditor() {
+  $('edit').hidden = true;
+  $('edit-open').hidden = false;
+}
+
+$('edit-open').addEventListener('click', () => {
+  const a = assets.find(x => x.id === selectedId);
+  if (!a) return;
+  $('edit-status').hidden = true;
+  if (source instanceof LocalSource) {
+    $('edit-status').hidden = false;
+    $('edit-status').textContent = 'Sign in to edit (add &auth to the address in local preview).';
+    return;
+  }
+  $('edit-name').value = a.name;
+  editTags = [...(a.tags || [])];
+  renderEditTags();
+  $('edit').hidden = false;
+  $('edit-open').hidden = true;
+  $('edit-name').focus();
+});
+$('edit-cancel').addEventListener('click', closeEditor);
+$('edit-add').addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ',') return;
+  e.preventDefault();
+  addTags($('edit-add').value);
+  $('edit-add').value = '';
+});
+$('edit').addEventListener('submit', async e => {
+  e.preventDefault();
+  const a = assets.find(x => x.id === selectedId);
+  if (!a) return;
+  addTags($('edit-add').value);
+  $('edit-add').value = '';
+  const edit = { name: $('edit-name').value.trim() || a.name, tags: [...editTags], by: login, at: new Date().toISOString().replace(/\.\d+Z$/, 'Z') };
+  $('edit-save').disabled = true;
+  $('edit-status').hidden = false;
+  $('edit-status').textContent = 'Saving…';
+  try {
+    await saveEdit(source.token, a, edit);
+    Object.assign(a, { name: edit.name, tags: edit.tags, edited: { by: edit.by, at: edit.at } });
+    assets.sort((x, y) => x.name.localeCompare(y.name));
+    renderList();
+    showDetails(a);
+    $('edit-status').hidden = false;
+    $('edit-status').textContent = 'Saved. Everyone sees it after the catalog updates (about a minute).';
+  } catch (err) {
+    if (err instanceof AuthError) { tokenStore.clear(); showGate(err.message); return; }
+    $('edit-status').textContent = `Not saved: ${err.message}`;
+  } finally {
+    $('edit-save').disabled = false;
+  }
+});
 
 // ── Animation bar ────────────────────────────────────────────────────
 

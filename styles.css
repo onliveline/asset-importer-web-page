@@ -195,3 +195,13 @@ button.github { display: flex; align-items: center; justify-content: center; gap
   .anim-bar input[type=range] { order: 5; flex-basis: 100%; }
   .topbar .who { display: none; }
 }
+
+/* Editing name & tags (catalog only) */
+.edit { display: grid; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
+.edit label, .edit .label { font-size: 12px; font-weight: 600; color: var(--muted); }
+.edit input[type=text] { padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); }
+.edit-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.edit-tags .tag { display: inline-flex; align-items: center; gap: 2px; padding: 2px 2px 2px 8px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); font-size: 13px; }
+.edit-tags .tag button { border: 0; background: none; cursor: pointer; padding: 0 6px; color: var(--muted); font-size: 15px; line-height: 1; }
+.edit-tags .tag button:hover { color: var(--accent); }
+.edit-actions { display: flex; gap: 8px; }
