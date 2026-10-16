@@ -131,6 +131,9 @@ button.github { display: flex; align-items: center; justify-content: center; gap
 .badge.glb { color: var(--glb); }
 .badge.fbx { color: var(--fbx); }
 .badge.anim { color: var(--anim); }
+.badge.new { color: var(--accent); border-color: var(--accent); }
+.group { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 8px 2px 2px; }
+.more { width: 100%; padding: 8px; border-radius: 8px; border: 1px dashed var(--line); background: none; color: var(--muted); cursor: pointer; }
 .badges { display: flex; gap: 6px; flex-wrap: wrap; }
 
 /* ── Stage ────────────────────────────────────────── */

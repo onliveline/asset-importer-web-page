@@ -23,13 +23,13 @@ export class AuthError extends Error {}
 export class GitHubSource {
   constructor(token) { this.token = token; }
 
-  async api(path, accept = 'application/vnd.github+json') {
+  async api(path, accept = 'application/vnd.github+json', what = `${OWNER}/${REPO}`) {
     const res = await fetch(`${API}${path}`, {
       headers: { Authorization: `Bearer ${this.token}`, Accept: accept, 'X-GitHub-Api-Version': '2022-11-28' },
       cache: 'no-store',
     });
     if (res.status === 401) throw new AuthError('GitHub rejected this token. It may be mistyped, expired or revoked.');
-    if (res.status === 404) throw new AuthError(`This token cannot read ${OWNER}/${REPO}. Check it is scoped to that repository with Contents: Read-only, and that you have access.`);
+    if (res.status === 404) throw new AuthError(`This token cannot read ${what}. It needs read access to the onliveline repositories (Contents: Read-only on all of them), or the file has been removed.`);
     if (res.status === 403) {
       const body = await res.text();
       if (/SAML|SSO/i.test(body)) throw new AuthError('The organization requires SSO authorization for this token.');
@@ -52,11 +52,14 @@ export class GitHubSource {
     return res.json();
   }
 
-  // The contents API returns a short-lived download URL on media.githubusercontent.com
-  // for LFS files. It is a bearer link, so it is used once and never stored or shown.
+  // Models are read from the repository they live in, at the commit the catalog recorded.
+  // LFS files: the contents API returns a short-lived download URL on media.githubusercontent.com.
+  // It is a bearer link, so it is used once and never stored or shown. Plain git files come raw from the API.
   async modelBytes(asset, onProgress) {
-    const path = asset.path.split('/').map(encodeURIComponent).join('/');
-    const meta = await (await this.api(`/repos/${OWNER}/${REPO}/contents/${path}?ref=${BRANCH}`)).json();
+    const { repo, commit, path } = asset.source;
+    const url = `/repos/${repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}?ref=${commit}`;
+    if (!asset.lfs) return readWithProgress(await this.api(url, 'application/vnd.github.raw+json', repo), asset.bytes, onProgress);
+    const meta = await (await this.api(url, undefined, repo)).json();
     if (!meta.download_url) throw new Error('GitHub did not return a download link for this file.');
     return readWithProgress(await fetch(meta.download_url, { cache: 'no-store', referrerPolicy: 'no-referrer' }), asset.bytes, onProgress);
   }
@@ -66,8 +69,8 @@ export class GitHubSource {
 export class LocalSource {
   async verify() { return { login: 'local preview', avatar: null }; }
   async catalog() { return (await fetch(`../${CATALOG_PATH}`, { cache: 'no-store' })).json(); }
-  async modelBytes(asset, onProgress) {
-    return readWithProgress(await fetch(`../${asset.path}`, { cache: 'no-store' }), asset.bytes, onProgress);
+  async modelBytes() {
+    throw new Error('Models live in their source repositories. Add &auth to the address and sign in to view them.');
   }
 }
 

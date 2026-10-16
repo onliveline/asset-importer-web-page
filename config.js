@@ -3,7 +3,8 @@
 export const OWNER = 'onliveline';
 export const REPO = 'OnVR-Asset-Library';
 export const BRANCH = 'main';
-export const CATALOG_PATH = 'catalog.json';
+// Written nightly by .github/workflows/catalog.yml: one entry per unique model, pointing at its source repository.
+export const CATALOG_PATH = 'catalog.v2.json';
 
 // Supabase project used only for "Sign in with GitHub". The publishable key is meant for browsers.
 export const SUPABASE_URL = 'https://hqejsjjnstuifxtejosx.supabase.co';

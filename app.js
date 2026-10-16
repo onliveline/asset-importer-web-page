@@ -9,6 +9,8 @@ const isLocalPreview = ['localhost', '127.0.0.1'].includes(location.hostname) &&
 
 let source = null;
 let assets = [];
+let recentCutoff = '';   // ISO time; assets added after it are "Recently added"
+let listLimit = 200;     // rows rendered before "Show more"
 let filter = 'all';
 let selectedId = null;
 let viewer = null;
@@ -34,8 +36,10 @@ function showGate(message) {
 async function start(src) {
   const who = await src.verify();
   source = src;
-  const data = await src.catalog();
+  // Local preview always reads the catalog from this folder; models still come from GitHub when signed in.
+  const data = await (isLocalPreview ? new LocalSource() : src).catalog();
   assets = (data.assets || []).slice().sort((a, b) => a.name.localeCompare(b.name));
+  recentCutoff = new Date(Date.now() - (data.recentDays || 14) * 864e5).toISOString();
   $('gate').hidden = true;
   $('app').hidden = false;
   $('who').textContent = who.login ? who.login : '';
@@ -95,6 +99,9 @@ function matches(a) {
   return !q || a.name.toLowerCase().includes(q) || (a.tags || []).some(t => t.toLowerCase().includes(q));
 }
 
+const isRecent = a => !!a.addedAt && a.addedAt >= recentCutoff;
+const fileName = a => a.source.path.split('/').pop();
+
 function badge(text, kind) {
   const b = document.createElement('span');
   b.className = `badge ${kind || ''}`;
@@ -106,30 +113,52 @@ function renderList() {
   const list = $('list');
   list.replaceChildren();
   const shown = assets.filter(matches);
-  for (const a of shown) {
+  // "Recently added" (newest first) heads the unfiltered list; the full list follows.
+  const recent = filter === 'all' && !$('search').value.trim()
+    ? shown.filter(isRecent).sort((a, b) => b.addedAt.localeCompare(a.addedAt)) : [];
+  if (recent.length) {
+    list.append(group(`Recently added (${recent.length})`));
+    for (const a of recent) list.append(row(a));
+    list.append(group('All models'));
+  }
+  for (const a of shown.slice(0, listLimit)) list.append(row(a));
+  if (shown.length > listLimit) {
+    const more = Object.assign(document.createElement('button'), { className: 'more', textContent: `Show more (${shown.length - listLimit} left)` });
+    more.addEventListener('click', () => { listLimit += 500; renderList(); });
     const li = document.createElement('li');
-    li.className = 'row';
-    const box = Object.assign(document.createElement('input'), { type: 'checkbox', checked: checked.has(a.id), title: 'Select for download' });
-    box.setAttribute('aria-label', `Select ${a.name}`);
-    box.addEventListener('change', () => { box.checked ? checked.add(a.id) : checked.delete(a.id); updateBulk(); });
-    const btn = document.createElement('button');
-    btn.className = 'item';
-    btn.setAttribute('aria-current', String(a.id === selectedId));
-    btn.addEventListener('click', () => select(a.id));
-    const name = document.createElement('span');
-    name.className = 'item-name';
-    name.textContent = a.name;
-    const row = document.createElement('span');
-    row.className = 'item-meta';
-    row.append(badge(a.format.toUpperCase(), a.format));
-    if (a.animated) row.append(badge('Animated', 'anim'));
-    row.append(Object.assign(document.createElement('span'), { className: 'muted small', textContent: formatBytes(a.bytes) }));
-    btn.append(name, row);
-    li.append(box, btn);
+    li.append(more);
     list.append(li);
   }
   $('list-empty').hidden = shown.length > 0;
   updateBulk();
+}
+
+function group(text) {
+  return Object.assign(document.createElement('li'), { className: 'group', textContent: text });
+}
+
+function row(a) {
+  const li = document.createElement('li');
+  li.className = 'row';
+  const box = Object.assign(document.createElement('input'), { type: 'checkbox', checked: checked.has(a.id), title: 'Select for download' });
+  box.setAttribute('aria-label', `Select ${a.name}`);
+  box.addEventListener('change', () => { box.checked ? checked.add(a.id) : checked.delete(a.id); updateBulk(); });
+  const btn = document.createElement('button');
+  btn.className = 'item';
+  btn.setAttribute('aria-current', String(a.id === selectedId));
+  btn.addEventListener('click', () => select(a.id));
+  const name = document.createElement('span');
+  name.className = 'item-name';
+  name.textContent = a.name;
+  const meta = document.createElement('span');
+  meta.className = 'item-meta';
+  meta.append(badge(a.format.toUpperCase(), a.format));
+  if (a.animated) meta.append(badge('Animated', 'anim'));
+  if (isRecent(a)) meta.append(badge('New', 'new'));
+  meta.append(Object.assign(document.createElement('span'), { className: 'muted small', textContent: formatBytes(a.bytes) }));
+  btn.append(name, meta);
+  li.append(box, btn);
+  return li;
 }
 
 // ── Bulk download ────────────────────────────────────────────────────
@@ -225,10 +254,10 @@ $('bulk-download').addEventListener('click', async () => {
     const files = {};
     for (const [i, a] of picked.entries()) {
       const bytes = await getBytes(a, p => { status.textContent = `Downloading ${i + 1}/${picked.length}: ${a.name} ${Math.round(p * 100)}%`; });
-      files[`${a.id}/${a.path.split('/').pop()}`] = new Uint8Array(bytes);
+      files[`${a.id}/${fileName(a)}`] = new Uint8Array(bytes);
     }
     if (picked.length === 1) {
-      saveFile(picked[0].path.split('/').pop(), cache.get(picked[0].id));
+      saveFile(fileName(picked[0]), cache.get(picked[0].id));
     } else {
       status.textContent = 'Packing zip…';
       await new Promise(r => setTimeout(r, 0));
@@ -243,10 +272,11 @@ $('bulk-download').addEventListener('click', async () => {
   }
 });
 
-$('search').addEventListener('input', renderList);
+$('search').addEventListener('input', () => { listLimit = 200; renderList(); });
 for (const chip of document.querySelectorAll('.chip')) {
   chip.addEventListener('click', () => {
     filter = chip.dataset.filter;
+    listLimit = 200;
     for (const c of document.querySelectorAll('.chip')) c.setAttribute('aria-pressed', String(c === chip));
     renderList();
   });
@@ -258,7 +288,7 @@ async function select(id) {
   const asset = assets.find(a => a.id === id);
   if (!asset) return;
   selectedId = id;
-  history.replaceState(null, '', `#${encodeURIComponent(id)}@${asset.version}`);
+  history.replaceState(null, '', `#${encodeURIComponent(id)}`);
   renderList();
   showDetails(asset);
 
@@ -298,10 +328,12 @@ function setLoading(fraction, text) {
 function showDetails(a) {
   $('details').hidden = false;
   $('d-name').textContent = a.name;
-  $('d-badges').replaceChildren(badge(a.format.toUpperCase(), a.format), ...(a.animated ? [badge('Animated', 'anim')] : []), badge(`v${a.version}`));
+  $('d-badges').replaceChildren(badge(a.format.toUpperCase(), a.format), ...(a.animated ? [badge('Animated', 'anim')] : []), ...(isRecent(a) ? [badge('New', 'new')] : []));
   $('d-size').textContent = formatBytes(a.bytes);
   for (const k of ['d-meshes', 'd-tris', 'd-clips']) $(k).textContent = '…';
-  $('d-repo').textContent = a.source?.repo || '—';
+  const others = (a.occurrences?.length || 1) - 1;
+  $('d-repo').textContent = a.source?.repo ? a.source.repo + (others ? ` (+${others} other place${others > 1 ? 's' : ''})` : '') : '—';
+  $('d-repo').title = (a.occurrences || []).map(o => `${o.repo}/${o.path} [${o.branches.join(', ')}]`).join('\n');
   $('d-path').textContent = a.source?.path || '—';
   $('d-commit').textContent = a.source?.commit ? a.source.commit.slice(0, 10) : '—';
   $('d-sha').textContent = a.sha256 ? `${a.sha256.slice(0, 16)}…` : '—';
@@ -360,7 +392,7 @@ $('auto-rotate').addEventListener('click', e => {
 
 $('download').addEventListener('click', () => {
   const a = assets.find(x => x.id === selectedId);
-  if (a && currentBytes) saveFile(a.path.split('/').pop(), currentBytes);
+  if (a && currentBytes) saveFile(fileName(a), currentBytes);
 });
 
 function formatBytes(n) {
