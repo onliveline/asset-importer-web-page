@@ -1,34 +1,40 @@
+/* onXT brand (onxt.de): deep navy, white wordmark, teal → lime → coral blocks, thin "X" lines. */
 :root {
-  --bg: #f4f5f7;
+  --brand-navy: #01058f;
+  --brand-teal: #00b4d8;
+  --brand-lime: #a9c914;
+  --brand-coral: #ef5a5a;
+  --brand-gradient: linear-gradient(120deg, var(--brand-teal), var(--brand-lime) 50%, var(--brand-coral));
+  --bg: #f3f5fb;
   --panel: #ffffff;
-  --panel-2: #eef0f3;
-  --text: #16181d;
-  --muted: #5d6573;
-  --line: #dde1e7;
-  --accent: #2f6df6;
+  --panel-2: #eceffa;
+  --text: #0b1033;
+  --muted: #59608a;
+  --line: #dce0f0;
+  --accent: var(--brand-navy);
   --accent-text: #ffffff;
-  --glb: #0f8a6a;
-  --fbx: #b5651d;
-  --anim: #7a4fd6;
+  --glb: #0a8a73;
+  --fbx: #c0561f;
+  --anim: #7a3fd6;
   --error: #c62828;
-  --stage: radial-gradient(ellipse at 50% 35%, #ffffff 0%, #e4e7ec 70%);
+  --stage: radial-gradient(ellipse at 50% 35%, #ffffff 0%, #e2e6f4 70%);
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0f1115;
-    --panel: #171a20;
-    --panel-2: #1f232b;
-    --text: #e7e9ee;
-    --muted: #9099a8;
-    --line: #2a2f39;
-    --accent: #5b8cff;
-    --accent-text: #0b0d12;
-    --glb: #3cc79f;
-    --fbx: #e39a52;
-    --anim: #a98bff;
+    --bg: #050a1f;
+    --panel: #0a1130;
+    --panel-2: #111a42;
+    --text: #eef1ff;
+    --muted: #8e98c6;
+    --line: #1f2b5e;
+    --accent: var(--brand-teal);
+    --accent-text: #03122b;
+    --glb: #3cd0a8;
+    --fbx: #f2a35e;
+    --anim: #b39bff;
     --error: #ff6b6b;
-    --stage: radial-gradient(ellipse at 50% 35%, #262b35 0%, #0f1115 75%);
+    --stage: radial-gradient(ellipse at 50% 35%, #12205c 0%, #050a1f 72%);
     color-scheme: dark;
   }
 }
@@ -50,10 +56,8 @@ a { color: var(--accent); }
 .error { color: var(--error); margin: 0; }
 
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: .2px; }
-.brand-mark {
-  width: 18px; height: 18px; border-radius: 5px;
-  background: linear-gradient(135deg, var(--accent), var(--anim));
-}
+.logo img { display: block; height: 22px; width: auto; }
+.product { font-weight: 500; letter-spacing: .3px; padding-left: 10px; border-left: 1px solid var(--line); }
 
 button.primary, button.ghost, .tool, .chip {
   border-radius: 8px; cursor: pointer; padding: 8px 14px; border: 1px solid transparent;
@@ -217,3 +221,23 @@ button.github { display: flex; align-items: center; justify-content: center; gap
 .active-filters .tag button:hover, .active-filters .clear:hover { color: var(--accent); }
 .tag-link { border: 0; background: none; padding: 0; color: inherit; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; font: inherit; }
 .tag-link:hover { color: var(--accent); }
+
+/* Brand: sign-in screen in the onxt.de style, always on deep navy with the thin "X" lines. */
+.gate {
+  background:
+    linear-gradient(56deg, transparent calc(42% - .6px), rgba(255,255,255,.22) 42%, transparent calc(42% + .6px)),
+    linear-gradient(-56deg, transparent calc(58% - .6px), rgba(255,255,255,.22) 58%, transparent calc(58% + .6px)),
+    linear-gradient(56deg, transparent calc(74% - .6px), rgba(255,255,255,.14) 74%, transparent calc(74% + .6px)),
+    radial-gradient(ellipse at 25% 15%, #13227a 0%, #050a1f 60%) !important;
+  color: #eef1ff;
+}
+.gate .gate-card { background: rgba(8, 14, 44, .82); border-color: #1f2b5e; color: #eef1ff; backdrop-filter: blur(4px); }
+.gate .muted, .gate label, .gate .howto { color: #a3acd6; }
+.gate input[type=password] { background: #0e1740; border-color: #26346e; color: #eef1ff; }
+.gate button.ghost { border-color: #2c3a78; color: #eef1ff; }
+.gate-logo { display: block; width: 190px; height: auto; margin: 0 0 6px; }
+.gate .product { border: 0; padding: 0; color: #a3acd6; margin-bottom: 8px; }
+/* A thin brand-gradient rule under the top bar, like the colour blocks in the wordmark. */
+.topbar { position: relative; }
+.topbar::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--brand-gradient); opacity: .85; }
+.badge.new { color: var(--brand-coral); border-color: var(--brand-coral); }
