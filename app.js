@@ -12,7 +12,8 @@ let login = '';      // the signed-in GitHub user, recorded on edits
 let assets = [];
 let recentCutoff = '';   // ISO time; assets added after it are "Recently added"
 let listLimit = 200;     // rows rendered before "Show more"
-let filter = 'all';
+let filter = 'all';      // format chip: all / glb / fbx / animated
+const facets = { domain: '', project: '', type: '', tags: [] }; // '' = any; domain '-' = not tagged yet
 let selectedId = null;
 let viewer = null;
 let currentBytes = null;
@@ -48,6 +49,7 @@ async function start(src) {
   viewer ??= new Viewer($('viewport'));
   if (isLocalPreview) window.viewer = viewer; // console access for local debugging
   viewer.onTick = updateTimeline;
+  renderFacets();
   renderList();
   prefetch();
   const fromHash = decodeURIComponent(location.hash.slice(1)).split('@')[0];
@@ -93,13 +95,105 @@ $('signout').addEventListener('click', () => {
 
 // ── List ─────────────────────────────────────────────────────────────
 
-function matches(a) {
-  const q = $('search').value.trim().toLowerCase();
+// skip: leave one filter out, to count what choosing another value of it would show.
+function passes(a, skip) {
   if (filter === 'glb' && a.format !== 'glb') return false;
   if (filter === 'fbx' && a.format !== 'fbx') return false;
   if (filter === 'animated' && !a.animated) return false;
+  if (skip !== 'domain' && facets.domain && (a.domain || '-') !== facets.domain) return false;
+  if (skip !== 'project' && facets.project && !(a.projects || []).includes(facets.project)) return false;
+  if (skip !== 'type' && facets.type) {
+    const [cat, sub] = facets.type.split('/');
+    if (a.category !== cat || (sub && a.subcategory !== sub)) return false;
+  }
+  if (skip !== 'tags' && facets.tags.some(t => !(a.tags || []).includes(t))) return false;
+  const q = $('search').value.trim().toLowerCase();
   return !q || a.name.toLowerCase().includes(q) || (a.tags || []).some(t => t.toLowerCase().includes(q));
 }
+
+const matches = a => passes(a);
+const filtered = () => filter !== 'all' || facets.domain || facets.project || facets.type || facets.tags.length || $('search').value.trim();
+const pretty = s => s.replace(/[-/]/g, m => (m === '/' ? ' / ' : ' ')).replace(/\b\w/g, c => c.toUpperCase());
+
+function countBy(list, key) {
+  const n = new Map();
+  for (const a of list) for (const v of [].concat(key(a) ?? [])) n.set(v, (n.get(v) || 0) + 1);
+  return n;
+}
+
+function option(value, text, selected) {
+  return Object.assign(document.createElement('option'), { value, textContent: text, selected });
+}
+
+// Rebuilds the dropdowns with counts for the current results, so you only ever pick something that exists.
+function renderFacets() {
+  const dom = countBy(assets.filter(a => passes(a, 'domain')), a => a.domain || '-');
+  $('f-domain').replaceChildren(option('', 'All domains', !facets.domain),
+    ...[...dom].sort((x, y) => x[0].localeCompare(y[0])).map(([v, n]) => option(v, `${v === '-' ? 'Not tagged yet' : pretty(v.toLowerCase())} (${n})`, v === facets.domain)));
+
+  const proj = countBy(assets.filter(a => passes(a, 'project')), a => a.projects);
+  $('f-project').replaceChildren(option('', 'All projects', !facets.project),
+    ...[...proj].sort((x, y) => x[0].localeCompare(y[0])).map(([v, n]) => option(v, `${v} (${n})`, v === facets.project)));
+
+  const typed = assets.filter(a => passes(a, 'type') && a.category);
+  const cats = countBy(typed, a => a.category), subs = countBy(typed, a => `${a.category}/${a.subcategory}`);
+  const groups = [...cats].sort((x, y) => y[1] - x[1]).map(([cat, n]) => {
+    const g = Object.assign(document.createElement('optgroup'), { label: pretty(cat) });
+    g.append(option(cat, `All ${cat} (${n})`, facets.type === cat),
+      ...[...subs].filter(([k]) => k.startsWith(cat + '/')).sort((x, y) => y[1] - x[1])
+        .map(([k, m]) => option(k, `${pretty(k.split('/')[1])} (${m})`, facets.type === k)));
+    return g;
+  });
+  $('f-type').replaceChildren(option('', 'All types', !facets.type), ...groups);
+
+  const tags = countBy(assets.filter(a => passes(a, 'tags')), a => a.tags);
+  $('f-tags').replaceChildren(...[...tags].filter(([t]) => !facets.tags.includes(t)).sort((x, y) => y[1] - x[1]).slice(0, 400)
+    .map(([t, n]) => Object.assign(document.createElement('option'), { value: t, label: `${n}` })));
+
+  for (const id of ['f-domain', 'f-project', 'f-type']) $(id).classList.toggle('on', !!$(id).value);
+  const active = $('active');
+  active.replaceChildren(...facets.tags.map(t => {
+    const chip = Object.assign(document.createElement('span'), { className: 'tag', textContent: t });
+    const x = Object.assign(document.createElement('button'), { textContent: '×', title: `Remove filter ${t}` });
+    x.setAttribute('aria-label', `Remove tag filter ${t}`);
+    x.addEventListener('click', () => { facets.tags = facets.tags.filter(v => v !== t); refilter(); });
+    chip.append(x);
+    return chip;
+  }));
+  if (filtered()) {
+    const clear = Object.assign(document.createElement('button'), { className: 'clear', textContent: 'Clear all filters' });
+    clear.addEventListener('click', clearFilters);
+    active.append(clear);
+  }
+  active.hidden = !active.children.length;
+}
+
+function refilter() {
+  listLimit = 200;
+  renderFacets();
+  renderList();
+}
+
+function clearFilters() {
+  Object.assign(facets, { domain: '', project: '', type: '', tags: [] });
+  $('search').value = '';
+  filter = 'all';
+  for (const c of document.querySelectorAll('.chip')) c.setAttribute('aria-pressed', String(c.dataset.filter === 'all'));
+  refilter();
+}
+
+function addTagFilter(t) {
+  if (t && !facets.tags.includes(t)) facets.tags.push(t);
+  refilter();
+}
+
+for (const [id, key] of [['f-domain', 'domain'], ['f-project', 'project'], ['f-type', 'type']])
+  $(id).addEventListener('change', e => { facets[key] = e.target.value; refilter(); });
+$('f-tag').addEventListener('change', e => {
+  const t = e.target.value.trim();
+  e.target.value = '';
+  if (assets.some(a => (a.tags || []).includes(t))) addTagFilter(t);
+});
 
 const isRecent = a => !!a.addedAt && a.addedAt >= recentCutoff;
 const fileName = a => a.source.path.split('/').pop();
@@ -116,7 +210,7 @@ function renderList() {
   list.replaceChildren();
   const shown = assets.filter(matches);
   // "Recently added" (newest first) heads the unfiltered list; the full list follows.
-  const recent = filter === 'all' && !$('search').value.trim()
+  const recent = !filtered()
     ? shown.filter(isRecent).sort((a, b) => b.addedAt.localeCompare(a.addedAt)) : [];
   if (recent.length) {
     list.append(group(`Recently added (${recent.length})`));
@@ -274,13 +368,12 @@ $('bulk-download').addEventListener('click', async () => {
   }
 });
 
-$('search').addEventListener('input', () => { listLimit = 200; renderList(); });
+$('search').addEventListener('input', refilter);
 for (const chip of document.querySelectorAll('.chip')) {
   chip.addEventListener('click', () => {
     filter = chip.dataset.filter;
-    listLimit = 200;
     for (const c of document.querySelectorAll('.chip')) c.setAttribute('aria-pressed', String(c === chip));
-    renderList();
+    refilter();
   });
 }
 
@@ -340,7 +433,13 @@ function showDetails(a) {
   $('d-commit').textContent = a.source?.commit ? a.source.commit.slice(0, 10) : '—';
   $('d-sha').textContent = a.sha256 ? `${a.sha256.slice(0, 16)}…` : '—';
   $('d-sha').title = a.sha256 || '';
-  $('d-tags').textContent = (a.tags || []).join(', ') || '—';
+  // Each tag filters the list to models that share it.
+  $('d-tags').replaceChildren(...(a.tags || []).flatMap((t, i) => {
+    const b = Object.assign(document.createElement('button'), { className: 'tag-link', textContent: t, title: `Show models tagged ${t}` });
+    b.addEventListener('click', () => addTagFilter(t));
+    return i ? [', ', b] : [b];
+  }));
+  if (!(a.tags || []).length) $('d-tags').textContent = '—';
   $('d-tags').title = a.edited ? `Edited by ${a.edited.by || 'someone'} ${a.edited.at || ''}` : '';
   closeEditor();
 }
@@ -408,7 +507,7 @@ $('edit').addEventListener('submit', async e => {
     await saveEdit(source.token, a, edit);
     Object.assign(a, { name: edit.name, tags: edit.tags, edited: { by: edit.by, at: edit.at } });
     assets.sort((x, y) => x.name.localeCompare(y.name));
-    renderList();
+    refilter();
     showDetails(a);
     $('edit-status').hidden = false;
     $('edit-status').textContent = 'Saved. Everyone sees it after the catalog updates (about a minute).';

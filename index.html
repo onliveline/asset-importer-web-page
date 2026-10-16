@@ -56,6 +56,14 @@
       <button class="chip" data-filter="fbx" aria-pressed="false">FBX</button>
       <button class="chip" data-filter="animated" aria-pressed="false">Animated</button>
     </div>
+    <div class="facets">
+      <select id="f-domain" aria-label="Domain"></select>
+      <select id="f-project" aria-label="Client or project"></select>
+      <select id="f-type" class="wide" aria-label="Type"></select>
+      <input id="f-tag" class="wide" list="f-tags" placeholder="Add a tag filter…" aria-label="Filter by tag" autocomplete="off">
+      <datalist id="f-tags"></datalist>
+    </div>
+    <div id="active" class="active-filters" hidden></div>
     <ul id="list" class="list" aria-label="Assets"></ul>
     <p id="list-empty" class="muted small" hidden>No assets match.</p>
     <div class="bulk">
