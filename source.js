@@ -23,11 +23,11 @@ export class AuthError extends Error {}
 export class GitHubSource {
   constructor(token) { this.token = token; }
 
-  async api(path, accept = 'application/vnd.github+json', what = `${OWNER}/${REPO}`) {
-    const res = await fetch(`${API}${path}`, {
-      headers: { Authorization: `Bearer ${this.token}`, Accept: accept, 'X-GitHub-Api-Version': '2022-11-28' },
-      cache: 'no-store',
-    });
+  async api(path, accept = 'application/vnd.github+json', what = `${OWNER}/${REPO}`, etag = '') {
+    const headers = { Authorization: `Bearer ${this.token}`, Accept: accept, 'X-GitHub-Api-Version': '2022-11-28' };
+    if (etag) headers['If-None-Match'] = etag;
+    const res = await fetch(`${API}${path}`, { headers, cache: 'no-store' });
+    if (res.status === 304) return res; // unchanged since the cached copy (free: does not count against the rate limit)
     if (res.status === 401) throw new AuthError('GitHub rejected this token. It may be mistyped, expired or revoked.');
     if (res.status === 404) throw new AuthError(`This token cannot read ${what}. It needs read access to the onliveline repositories (Contents: Read-only on all of them), or the file has been removed.`);
     if (res.status === 403) {
@@ -40,16 +40,30 @@ export class GitHubSource {
     return res;
   }
 
+  // Who is signed in. Access itself is proven by reading the catalog, which runs at the same time.
   async verify() {
-    await this.api(`/repos/${OWNER}/${REPO}`);
     // Fine-grained tokens can read their own user; failure here is not fatal.
     try { const u = await (await this.api('/user')).json(); return { login: u.login, avatar: u.avatar_url }; }
     catch { return { login: null, avatar: null }; }
   }
 
-  async catalog() {
-    const res = await this.api(`/repos/${OWNER}/${REPO}/contents/${CATALOG_PATH}?ref=${BRANCH}`, 'application/vnd.github.raw+json');
-    return res.json();
+  /**
+   * The catalog, fast: a copy cached on this device is returned at once and GitHub is asked only
+   * whether it changed (ETag). A newer catalog arrives through onUpdate; a failure (e.g. a revoked
+   * token) through onError. Without a cached copy this waits for GitHub.
+   */
+  async catalog(onUpdate, onError) {
+    const cached = await catalogCache.read();
+    const fresh = (async () => {
+      const res = await this.api(`/repos/${OWNER}/${REPO}/contents/${CATALOG_PATH}?ref=${BRANCH}`, 'application/vnd.github.raw+json', undefined, cached?.etag);
+      if (res.status === 304) return null;
+      const text = await res.text();
+      await catalogCache.write(text, res.headers.get('ETag'));
+      return JSON.parse(text);
+    })();
+    if (!cached) return fresh;
+    fresh.then(data => data && onUpdate?.(data), err => onError?.(err));
+    return JSON.parse(cached.text);
   }
 
   // Models are read from the repository they live in, at the commit the catalog recorded.
@@ -90,6 +104,20 @@ export async function saveEdit(token, asset, edit) {
   }
   throw new Error('Someone else saved this entry at the same time. Try again.');
 }
+
+// The private catalog lives in the same Cache Storage as the models, so Sign out deletes both.
+const catalogCache = {
+  key: `${location.origin}/__onvr-catalog/${CATALOG_PATH}`,
+  async read() {
+    try {
+      const hit = await (await caches.open('onvr-asset-library-v1')).match(this.key);
+      return hit ? { text: await hit.text(), etag: hit.headers.get('X-ETag') || '' } : null;
+    } catch { return null; }
+  },
+  async write(text, etag) {
+    try { await (await caches.open('onvr-asset-library-v1')).put(this.key, new Response(text, { headers: { 'X-ETag': etag || '' } })); } catch { /* not cached */ }
+  },
+};
 
 /** Developer mode on localhost: serves the repository folder itself, no token involved. */
 export class LocalSource {

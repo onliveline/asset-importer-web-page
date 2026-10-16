@@ -1,8 +1,6 @@
 import { OWNER, REPO } from './config.js';
 import { tokenStore, GitHubSource, LocalSource, AuthError, saveEdit } from './source.js';
 import { githubSignInAvailable, signInWithGitHub, completeGitHubSignIn, signOut } from './auth.js';
-import { Viewer } from './viewer.js';
-import { zipSync } from 'three/addons/libs/fflate.module.js';
 
 const $ = id => document.getElementById(id);
 const isLocalPreview = ['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('local');
@@ -24,6 +22,26 @@ const DISK_CACHE = 'onvr-asset-library-v1';
 const PREFETCH_BUDGET = 500e6; // prefetch the whole library when it is this small
 const checked = new Set(); // asset ids ticked for bulk download
 
+// The 3D viewer (three.js) is loaded on demand, so the list appears without waiting for it.
+let viewerReady = null;
+function loadViewer() {
+  viewerReady ??= import('./viewer.js').then(({ Viewer }) => {
+    viewer = new Viewer($('viewport'));
+    if (isLocalPreview) window.viewer = viewer; // console access for local debugging
+    viewer.onTick = updateTimeline;
+    return viewer;
+  });
+  return viewerReady;
+}
+
+// A catalog arrived (cached first, then a newer one from GitHub): show it, keeping filters and selection.
+function applyCatalog(data) {
+  assets = (data.assets || []).slice().sort((a, b) => a.name.localeCompare(b.name));
+  recentCutoff = new Date(Date.now() - (data.recentDays || 14) * 864e5).toISOString();
+  renderFacets();
+  renderList();
+}
+
 // ── Sign-in ──────────────────────────────────────────────────────────
 
 function showGate(message) {
@@ -36,21 +54,17 @@ function showGate(message) {
 }
 
 async function start(src) {
-  const who = await src.verify();
-  source = src;
+  // Who you are and the catalog load in parallel; the catalog read also proves access.
   // Local preview always reads the catalog from this folder; models still come from GitHub when signed in.
-  const data = await (isLocalPreview ? new LocalSource() : src).catalog();
-  assets = (data.assets || []).slice().sort((a, b) => a.name.localeCompare(b.name));
-  recentCutoff = new Date(Date.now() - (data.recentDays || 14) * 864e5).toISOString();
+  const onError = err => { if (err instanceof AuthError) { tokenStore.clear(); showGate(err.message); } };
+  const [who, data] = await Promise.all([src.verify(), (isLocalPreview ? new LocalSource() : src).catalog(applyCatalog, onError)]);
+  source = src;
   $('gate').hidden = true;
   $('app').hidden = false;
   login = who.login || '';
   $('who').textContent = login;
-  viewer ??= new Viewer($('viewport'));
-  if (isLocalPreview) window.viewer = viewer; // console access for local debugging
-  viewer.onTick = updateTimeline;
-  renderFacets();
-  renderList();
+  applyCatalog(data);
+  setTimeout(loadViewer, 0); // the 3D engine (~0.7 MB) loads after the list is on screen
   prefetch();
   const fromHash = decodeURIComponent(location.hash.slice(1)).split('@')[0];
   if (assets.some(a => a.id === fromHash)) select(fromHash);
@@ -321,6 +335,8 @@ async function getBytes(asset, onProgress) {
 // Background-fill the on-device cache, three at a time, so opening any model skips the network.
 async function prefetch() {
   if (typeof caches === 'undefined') return;
+  // Large libraries are never prefetched: decide that before checking 1,900 cache entries.
+  if (assets.reduce((n, a) => n + (a.bytes || 0), 0) > PREFETCH_BUDGET) return;
   const missing = [];
   for (const a of assets) if (!(await diskHas(a))) missing.push(a);
   if (!missing.length || missing.reduce((n, a) => n + (a.bytes || 0), 0) > PREFETCH_BUDGET) return;
@@ -357,6 +373,7 @@ $('bulk-download').addEventListener('click', async () => {
     } else {
       status.textContent = 'Packing zip…';
       await new Promise(r => setTimeout(r, 0));
+      const { zipSync } = await import('three/addons/libs/fflate.module.js');
       saveFile(`onvr-assets-${picked.length}.zip`, zipSync(files, { level: 0 }));
     }
     status.textContent = `Downloaded ${picked.length} asset${picked.length > 1 ? 's' : ''}.`;
@@ -396,6 +413,8 @@ async function select(id) {
     if (ticket !== loadToken) return;
     setLoading(1, 'Preparing model…');
     // Loaders may detach or modify the buffer; give them a copy and keep the original for download.
+    await loadViewer();
+    if (ticket !== loadToken) return;
     const info = await viewer.show(asset.format, bytes.slice(0));
     if (ticket !== loadToken) return;
     currentBytes = bytes;
