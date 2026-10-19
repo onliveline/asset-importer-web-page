@@ -29,6 +29,7 @@
   --fbx: #b4561c;
   --anim: #6b3fc9;
   --new: #d8434b;
+  --review: #a35200;
   --error: #c62828;
   --radius: 16px;
   --radius-sm: 10px;
@@ -54,6 +55,7 @@
   --fbx: #f4a564;
   --anim: #b49cff;
   --new: #ff7a80;
+  --review: #ffc061;
   --error: #ff7070;
   color-scheme: dark;
 }
@@ -75,6 +77,7 @@
   --fbx: #f4a564;
   --anim: #b49cff;
   --new: #ff7a80;
+  --review: #ffc061;
   --error: #ff7070;
   color-scheme: dark;
   }
@@ -221,6 +224,8 @@ button.github { padding: 12px 18px; }
 .badge.fbx { color: var(--fbx); }
 .badge.anim { color: var(--anim); }
 .badge.new { color: var(--new); }
+.badge.review { color: var(--review); }
+.review-hint { margin: 0 0 10px; color: var(--review); overflow-wrap: anywhere; }
 .badges { display: flex; gap: 6px; flex-wrap: wrap; }
 
 /* ── Stage: dark card for the 3D view ─────────────── */

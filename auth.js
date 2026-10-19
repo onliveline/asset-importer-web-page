@@ -1,6 +1,6 @@
-import { OWNER, SUPABASE_URL, SUPABASE_KEY } from './config.js?v=ec7525fa';
-import { AuthError } from './source.js?v=ec7525fa';
-import { t } from './i18n.js?v=ec7525fa';
+import { OWNER, SUPABASE_URL, SUPABASE_KEY } from './config.js?v=98463512';
+import { AuthError } from './source.js?v=98463512';
+import { t } from './i18n.js?v=98463512';
 
 // Sign in with GitHub through Supabase (it holds the OAuth client secret).
 // The GitHub token returned to the browser is what reads the private repository,

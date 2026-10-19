@@ -7,11 +7,11 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-kaEog0AsPo4/9apXRMvp5eF3zpfBg9ltlJNNm2KUPio='; style-src 'self'; img-src 'self' blob: data: https://avatars.githubusercontent.com; connect-src https://api.github.com https://media.githubusercontent.com https://raw.githubusercontent.com https://hqejsjjnstuifxtejosx.supabase.co blob: data: 'self'; font-src 'self'; base-uri 'none'; form-action 'none'">
 <title>onXT Asset Library</title>
 <link rel="icon" href="onxt-logo.webp" type="image/webp">
-<script src="theme.js?v=ec7525fa"></script>
-<link rel="stylesheet" href="styles.css?v=ec7525fa">
+<script src="theme.js?v=98463512"></script>
+<link rel="stylesheet" href="styles.css?v=98463512">
 <script type="importmap">{"imports":{"three":"./vendor/three/three.module.min.js","three/addons/":"./vendor/three/addons/"}}</script>
-<script src="vendor/supabase/supabase.js?v=ec7525fa" defer></script>
-<script type="module" src="app.js?v=ec7525fa"></script>
+<script src="vendor/supabase/supabase.js?v=98463512" defer></script>
+<script type="module" src="app.js?v=98463512"></script>
 </head>
 <body>
 
@@ -59,6 +59,7 @@
       <button class="chip" data-filter="glb" aria-pressed="false">GLB</button>
       <button class="chip" data-filter="fbx" aria-pressed="false">FBX</button>
       <button class="chip" data-filter="animated" aria-pressed="false" data-i18n="chip.animated">Animated</button>
+      <button id="chip-review" class="chip" data-filter="review" aria-pressed="false">Needs review</button>
     </div>
     <div class="facets">
       <select id="f-domain" aria-label="Domain" data-i18n-aria="facet.domain"></select>
@@ -114,7 +115,9 @@
       <dt>Commit</dt><dd id="d-commit" class="mono"></dd>
       <dt>SHA-256</dt><dd id="d-sha" class="mono"></dd>
       <dt data-i18n="d.tags">Tags</dt><dd id="d-tags"></dd>
+      <dt data-i18n="d.confidence">Tagged by</dt><dd id="d-confidence"></dd>
     </dl>
+    <p id="d-review" class="review-hint small" hidden data-i18n="d.reviewHint">Low confidence: check the name and tags, then Save (even unchanged) to mark it checked.</p>
     <button id="edit-open" class="ghost" data-i18n="edit.open">Edit name &amp; tags</button>
     <form id="edit" class="edit" hidden>
       <label for="edit-name" data-i18n="edit.name">Name</label>

@@ -1,7 +1,7 @@
-import { OWNER, REPO } from './config.js?v=ec7525fa';
-import { tokenStore, GitHubSource, LocalSource, AuthError, saveEdit } from './source.js?v=ec7525fa';
-import { githubSignInAvailable, signInWithGitHub, completeGitHubSignIn, signOut } from './auth.js?v=ec7525fa';
-import { t, term, lang, setLang, translatePage, onLangChange } from './i18n.js?v=ec7525fa';
+import { OWNER, REPO } from './config.js?v=98463512';
+import { tokenStore, GitHubSource, LocalSource, AuthError, saveEdit } from './source.js?v=98463512';
+import { githubSignInAvailable, signInWithGitHub, completeGitHubSignIn, signOut } from './auth.js?v=98463512';
+import { t, term, lang, setLang, translatePage, onLangChange } from './i18n.js?v=98463512';
 
 const $ = id => document.getElementById(id);
 const isLocalPreview = ['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('local');
@@ -11,7 +11,8 @@ let login = '';      // the signed-in GitHub user, recorded on edits
 let assets = [];
 let recentCutoff = '';   // ISO time; assets added after it are "Recently added"
 let listLimit = 200;     // rows rendered before "Show more"
-let filter = 'all';      // format chip: all / glb / fbx / animated
+let filter = 'all';      // chip: all / glb / fbx / animated / review
+const LOW_CONFIDENCE = 0.5; // tagging-agent scores below this wait for a human check; any saved edit counts as checked
 const facets = { domain: '', project: '', type: '', tags: [] }; // '' = any; domain '-' = not tagged yet
 let selectedId = null;
 let viewer = null;
@@ -26,7 +27,7 @@ const checked = new Set(); // asset ids ticked for bulk download
 // The 3D viewer (three.js) is loaded on demand, so the list appears without waiting for it.
 let viewerReady = null;
 function loadViewer() {
-  viewerReady ??= import('./viewer.js?v=ec7525fa').then(({ Viewer }) => {
+  viewerReady ??= import('./viewer.js?v=98463512').then(({ Viewer }) => {
     viewer = new Viewer($('viewport'));
     if (isLocalPreview) window.viewer = viewer; // console access for local debugging
     viewer.onTick = updateTimeline;
@@ -119,6 +120,7 @@ function passes(a, skip) {
   if (filter === 'glb' && a.format !== 'glb') return false;
   if (filter === 'fbx' && a.format !== 'fbx') return false;
   if (filter === 'animated' && !a.animated) return false;
+  if (filter === 'review' && !needsReview(a)) return false;
   if (skip !== 'domain' && facets.domain && (a.domain || '-') !== facets.domain) return false;
   if (skip !== 'project' && facets.project && !(a.projects || []).includes(facets.project)) return false;
   if (skip !== 'type' && facets.type) {
@@ -131,6 +133,8 @@ function passes(a, skip) {
 }
 
 const matches = a => passes(a);
+const needsReview = a => typeof a.confidence === 'number' && a.confidence < LOW_CONFIDENCE && !a.edited;
+const reviewBadge = a => badge(t('badge.review', { c: a.confidence.toFixed(2) }), 'review');
 const filtered = () => filter !== 'all' || facets.domain || facets.project || facets.type || facets.tags.length || $('search').value.trim();
 
 function countBy(list, key) {
@@ -169,6 +173,8 @@ function renderFacets() {
     .map(([t, n]) => Object.assign(document.createElement('option'), { value: t, label: `${n}` })));
 
   for (const id of ['f-domain', 'f-project', 'f-type']) $(id).classList.toggle('on', !!$(id).value);
+  $('chip-review').textContent = t('chip.review', { n: assets.filter(needsReview).length });
+  $('chip-review').title = t('chip.reviewTitle', { c: LOW_CONFIDENCE });
   const active = $('active');
   active.replaceChildren(...facets.tags.map(tag => {
     const chip = Object.assign(document.createElement('span'), { className: 'tag', textContent: tag });
@@ -227,6 +233,7 @@ function renderList() {
   const list = $('list');
   list.replaceChildren();
   const shown = assets.filter(matches);
+  if (filter === 'review') shown.sort((x, y) => x.confidence - y.confidence); // least sure first
   // "Recently added" (newest first) heads the unfiltered list; the full list follows.
   const recent = !filtered()
     ? shown.filter(isRecent).sort((a, b) => b.addedAt.localeCompare(a.addedAt)) : [];
@@ -269,6 +276,7 @@ function row(a) {
   meta.append(badge(a.format.toUpperCase(), a.format));
   if (a.animated) meta.append(badge(t('badge.animated'), 'anim'));
   if (isRecent(a)) meta.append(badge(t('badge.new'), 'new'));
+  if (needsReview(a)) meta.append(reviewBadge(a));
   meta.append(Object.assign(document.createElement('span'), { className: 'muted small', textContent: formatBytes(a.bytes) }));
   btn.append(name, meta);
   li.append(box, btn);
@@ -446,7 +454,11 @@ function setLoading(fraction, text) {
 function showDetails(a) {
   $('details').hidden = false;
   $('d-name').textContent = a.name;
-  $('d-badges').replaceChildren(badge(a.format.toUpperCase(), a.format), ...(a.animated ? [badge(t('badge.animated'), 'anim')] : []), ...(isRecent(a) ? [badge(t('badge.new'), 'new')] : []));
+  $('d-badges').replaceChildren(badge(a.format.toUpperCase(), a.format), ...(a.animated ? [badge(t('badge.animated'), 'anim')] : []), ...(isRecent(a) ? [badge(t('badge.new'), 'new')] : []), ...(needsReview(a) ? [reviewBadge(a)] : []));
+  $('d-confidence').textContent = typeof a.confidence === 'number'
+    ? t('d.confidenceValue', { model: a.taggedBy || '?', c: a.confidence.toFixed(2) }) + (a.edited ? `; ${t('d.checked', { who: a.edited.by || t('d.someone') })}` : '')
+    : '—';
+  $('d-review').hidden = !needsReview(a);
   $('d-size').textContent = formatBytes(a.bytes);
   for (const k of ['d-meshes', 'd-tris', 'd-clips']) $(k).textContent = '…';
   const others = (a.occurrences?.length || 1) - 1;
