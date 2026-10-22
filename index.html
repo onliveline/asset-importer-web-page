@@ -7,11 +7,11 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-kaEog0AsPo4/9apXRMvp5eF3zpfBg9ltlJNNm2KUPio='; style-src 'self'; img-src 'self' blob: data: https://avatars.githubusercontent.com; connect-src https://api.github.com https://media.githubusercontent.com https://raw.githubusercontent.com https://hqejsjjnstuifxtejosx.supabase.co blob: data: 'self'; font-src 'self'; base-uri 'none'; form-action 'none'">
 <title>onXT Asset Library</title>
 <link rel="icon" href="onxt-logo.webp" type="image/webp">
-<script src="theme.js?v=98463512"></script>
-<link rel="stylesheet" href="styles.css?v=98463512">
+<script src="theme.js?v=83da3c4d"></script>
+<link rel="stylesheet" href="styles.css?v=83da3c4d">
 <script type="importmap">{"imports":{"three":"./vendor/three/three.module.min.js","three/addons/":"./vendor/three/addons/"}}</script>
-<script src="vendor/supabase/supabase.js?v=98463512" defer></script>
-<script type="module" src="app.js?v=98463512"></script>
+<script src="vendor/supabase/supabase.js?v=83da3c4d" defer></script>
+<script type="module" src="app.js?v=83da3c4d"></script>
 </head>
 <body>
 
@@ -124,6 +124,10 @@
       <input id="edit-name" type="text" maxlength="60" required>
       <span class="label" data-i18n="edit.tags">Tags</span>
       <div id="edit-tags" class="edit-tags"></div>
+      <div id="edit-suggest-row" class="edit-suggest" hidden>
+        <span class="label" data-i18n="edit.suggested">Suggested from recent edits</span>
+        <div id="edit-suggest" class="edit-tags"></div>
+      </div>
       <input id="edit-add" type="text" maxlength="40" placeholder="Add a tag and press Enter" aria-label="Add a tag" data-i18n-placeholder="edit.add" data-i18n-aria="edit.addAria">
       <p class="muted small" data-i18n="edit.note">Changes the catalog only, never the model file. Saved to the library repository under your GitHub name.</p>
       <div class="edit-actions">

@@ -299,6 +299,9 @@ button.github { padding: 12px 18px; }
 }
 .edit-tags .tag button { border: 0; background: none; cursor: pointer; padding: 0 6px; color: var(--muted); font-size: 15px; line-height: 1; }
 .edit-tags .tag button:hover { color: var(--new); }
+.edit-suggest { display: grid; gap: 6px; }
+.edit-tags .tag.suggest { padding: 3px 10px; color: var(--muted); border-style: dashed; cursor: pointer; font: inherit; font-size: 12px; }
+.edit-tags .tag.suggest:hover { color: inherit; border-style: solid; }
 .edit-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .fatal { padding: 24px; color: #fff; }
