@@ -1,7 +1,7 @@
-import { OWNER, REPO } from './config.js?v=83da3c4d';
-import { tokenStore, GitHubSource, LocalSource, AuthError, saveEdit } from './source.js?v=83da3c4d';
-import { githubSignInAvailable, signInWithGitHub, completeGitHubSignIn, signOut } from './auth.js?v=83da3c4d';
-import { t, term, lang, setLang, translatePage, onLangChange } from './i18n.js?v=83da3c4d';
+import { OWNER, REPO } from './config.js?v=a0700245';
+import { tokenStore, GitHubSource, LocalSource, AuthError, saveEdit } from './source.js?v=a0700245';
+import { githubSignInAvailable, signInWithGitHub, completeGitHubSignIn, signOut } from './auth.js?v=a0700245';
+import { t, term, lang, setLang, translatePage, onLangChange } from './i18n.js?v=a0700245';
 
 const $ = id => document.getElementById(id);
 const isLocalPreview = ['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('local');
@@ -27,7 +27,7 @@ const checked = new Set(); // asset ids ticked for bulk download
 // The 3D viewer (three.js) is loaded on demand, so the list appears without waiting for it.
 let viewerReady = null;
 function loadViewer() {
-  viewerReady ??= import('./viewer.js?v=83da3c4d').then(({ Viewer }) => {
+  viewerReady ??= import('./viewer.js?v=a0700245').then(({ Viewer }) => {
     viewer = new Viewer($('viewport'));
     if (isLocalPreview) window.viewer = viewer; // console access for local debugging
     viewer.onTick = updateTimeline;
@@ -482,18 +482,19 @@ function showDetails(a) {
 // ── Editing name & tags (catalog only, never the model file) ─────────
 
 let editTags = [];
-const RECENT_EDITS = 20; // suggestions come from the tags of this many most recent human edits (the edits/ commits)
+const DOMAIN_TAGS = ['ABSTRACT', 'INDUSTRIAL', 'MEDICAL', 'BIOLOGICAL', 'ESTABLISHMENT'];
+const RECENT_EDITS = 20; // project suggestions also come from this many most recent human edits (the edits/ commits)
 
-// Tags from recent edits, weighted so newer edits count more; leaves out tags the model already has.
+// Domain tags, then project names: this model's own projects first, then those of recent edits, newest first.
+// Leaves out tags the model already has.
 function suggestedTags() {
   const have = new Set(editTags.map(x => x.toLowerCase()));
-  const score = new Map();
-  assets.filter(a => a.edited && a.edited.at && a.id !== selectedId)
+  const projects = new Set(assets.find(a => a.id === selectedId)?.projects || []);
+  assets.filter(a => a.edited && a.edited.at)
     .sort((x, y) => y.edited.at.localeCompare(x.edited.at)).slice(0, RECENT_EDITS)
-    .forEach((a, i) => (a.tags || []).forEach(tag => {
-      if (!have.has(tag.toLowerCase())) score.set(tag, (score.get(tag) || 0) + 1 / (1 + i / 5));
-    }));
-  return [...score].sort((x, y) => y[1] - x[1]).slice(0, 12).map(([tag]) => tag);
+    .forEach(a => (a.projects || []).forEach(p => projects.add(p)));
+  const missing = tag => !have.has(tag.toLowerCase());
+  return [...DOMAIN_TAGS.filter(missing), ...[...projects].filter(missing).slice(0, 8)];
 }
 
 function renderEditTags() {
